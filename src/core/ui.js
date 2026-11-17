@@ -39,6 +39,8 @@
   };
   const projects = (c, mi) => (c.isNew ? [] : D.projectsFor(c, mi)).concat(P.projects[c.id + '|' + mi] || []);
   /* Seats: the district allots a pool to each group, the GRR or GRS spreads it over the group's clubs. */
+  // Scanning at the door is only for the big events and every DRC meeting. Everything else is counted from the club's paid list.
+  const scanEvents = () => D.EVENTS.filter(e => e.scan && e.status !== 'Done');
   const seatEvents = () => D.EVENTS.filter(e => e.quota && e.status !== 'Done');
   const seatsOf = (e, c) => { const a = P.alloc[e.id]; return a && a.club[c.id] != null ? a.club[c.id] : e.quota || 0; };
   const poolOf = (e, g) => { const a = P.alloc[e.id]; return a && a.pool[g] != null ? a.pool[g] : activeClubs().filter(c => groupOf(c) === g).reduce((n, c) => n + (e.quota || 0), 0); };
@@ -79,6 +81,7 @@
     sec: { label: 'Club Secretary', full: 'Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'collect', 'drc', 'mom', 'events', 'people', 'pass'] },
     jsec: { label: 'Joint Secretary', full: 'Joint Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'events', 'people', 'pass'] },
     trs: { label: 'Club Treasurer', full: 'Treasurer, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'rupee', nav: ['home', 'collect', 'events', 'people', 'pass'] },
+    adsgt: { label: 'Associate District Sergeant-at-Arms', full: 'Associate District Sergeant-at-Arms', who: 'District events', icon: 'badge', nav: ['home', 'review', 'events'] },
     dsgt: { label: 'District Sergeant-at-Arms', full: 'Chief Sergeant-at-Arms, District', who: 'District events', icon: 'badge', nav: ['home', 'review', 'events'] },
     mem: { label: 'Member', full: 'Member, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'id', nav: ['home', 'events', 'initiatives', 'awards'] }
   };
@@ -88,7 +91,7 @@
     people: ['People', 'users'], visits: ['DRR visits', 'calendar'], season: ['Season', 'sun'], log: ['Log project', 'plus'],
     monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id'], seats: ['Seat allotment', 'id'], drc: ['DRC bookings', 'calendar'], mom: ['Minutes', 'doc'], review: ['Attendance review', 'badge'], collect: ['Event fees', 'rupee']
   };
-  const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'My group', grs: 'My group', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', trs: 'Club wallet', dsgt: 'Scan at the door', mem: 'My pass' };
+  const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'My group', grs: 'My group', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', trs: 'Club wallet', dsgt: 'Scan at the door', adsgt: 'Scan at the door', mem: 'My pass' };
   // The pass sits right after Home for everyone: it is the thing people need first at a door.
   Object.values(ROLES).forEach(r => { if (r.nav.includes('home') && !(r === ROLES.mem)) { r.nav = r.nav.filter(x => x !== 'pass'); r.nav.splice(1, 0, 'pass'); } });
   const role = () => P.role;
@@ -96,7 +99,7 @@
   /* ---------- who sees what ---------- */
   // district: every club and person. group: the clubs and people of one group. portfolio: clubs and events, no member lists.
   // club: that club only. Search, the people list, the clubs list and every club page follow this one rule.
-  const SCOPE = { drr: 'district', drs: 'district', dt: 'district', gco: 'district', grr: 'group', grs: 'group', dir: 'portfolio', chair: 'portfolio', pres: 'club', vp: 'club', sec: 'club', jsec: 'club', trs: 'club', mem: 'club', dsgt: 'portfolio' };
+  const SCOPE = { drr: 'district', drs: 'district', dt: 'district', gco: 'district', grr: 'group', grs: 'group', dir: 'portfolio', chair: 'portfolio', pres: 'club', vp: 'club', sec: 'club', jsec: 'club', trs: 'club', mem: 'club', dsgt: 'portfolio', adsgt: 'portfolio' };
   // A GRR or GRS belongs to one group, and that comes from their login. The demo lets you pick which one to try.
   const myGroup = () => P.myGroup || 6;
   const level = () => SCOPE[P.role] || 'none';
@@ -470,5 +473,5 @@
   const skeletonRows = (n, cols) => Array.from({ length: n }, () => `<tr class="sk-row">${Array.from({ length: cols }, () => '<td><span class="sk"></span></td>').join('')}</tr>`).join('');
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-  window.UI = { gearPath, P, save, blank, KEY, calm, OS_CALM, SCOPE, level, myClub, get MY_GROUP() { return myGroup(); }, demoClubs, canSeeClub, canSeePerson, visibleClubs, roleInfo, can, download, seatEvents, seatsOf, regOf, poolOf, spent, get RM() { return calm(); }, $, $$, esc, num, inr, ic, pct, clubs, club, stateOf, groupOf, activeClubs, report, setReport, projects, wallet, gcolor, RS, PAY, pill, rpill, ppill, gpill, ROLES, NAV, HOME_NAME, role, R, view, go, render, cur: () => cur, setCur: c => { cur = c; }, notifs, sheet, closeSheet, toast, confetti, after, gear, skyline, scene, auto, coffee, mapSVG, ring, spark, bar, tracker, qr, pager, skeletonRows, debounce };
+  window.UI = { gearPath, P, save, blank, KEY, calm, OS_CALM, SCOPE, level, myClub, get MY_GROUP() { return myGroup(); }, demoClubs, canSeeClub, canSeePerson, visibleClubs, roleInfo, can, download, seatEvents, scanEvents, seatsOf, regOf, poolOf, spent, get RM() { return calm(); }, $, $$, esc, num, inr, ic, pct, clubs, club, stateOf, groupOf, activeClubs, report, setReport, projects, wallet, gcolor, RS, PAY, pill, rpill, ppill, gpill, ROLES, NAV, HOME_NAME, role, R, view, go, render, cur: () => cur, setCur: c => { cur = c; }, notifs, sheet, closeSheet, toast, confetti, after, gear, skyline, scene, auto, coffee, mapSVG, ring, spark, bar, tracker, qr, pager, skeletonRows, debounce };
 })();

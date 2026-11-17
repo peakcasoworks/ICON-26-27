@@ -21,13 +21,13 @@
   }).join('')}</div>`;
 
   /* ---------- role picker ---------- */
-  const ORDER = [['District', ['drr', 'drs', 'dt', 'gco', 'dsgt']], ['Group and portfolio', ['grr', 'grs', 'dir', 'chair']], ['Club', ['pres', 'vp', 'sec', 'jsec', 'trs', 'mem']]];
+  const ORDER = [['District', ['drr', 'drs', 'dt', 'gco', 'dsgt', 'adsgt']], ['Group and portfolio', ['grr', 'grs', 'dir', 'chair']], ['Club', ['pres', 'vp', 'sec', 'jsec', 'trs', 'mem']]];
   const ROLE_NOTE = {
     drr: 'Command centre, approvals, season setup', drs: 'Review every monthly report', dt: 'Dues, event fees, payment checks',
     grr: 'Chase and check the clubs of your own group', dir: 'Run a district initiative', chair: 'Committees and tasks for RYLA',
     gco: 'Every GRR and GRS, club moves, seats', grs: 'Check your own group\'s reports with the GRR',
     pres: 'Send reports, add members, book the DRR visit', vp: 'See reports, roster and events', sec: 'Log projects, send the report, keep the roster', jsec: 'Log projects and help send the report',
-    trs: 'Pay dues and event fees in one go', dsgt: 'Scan members in at district events', mem: 'Pass, points, certificates'
+    trs: 'Pay dues and event fees in one go', dsgt: 'Scan every member in at the big events and each DRC', adsgt: 'Scan with the District Sergeant at the big events and each DRC', mem: 'Pass, points, certificates'
   };
   const letters = w => w.split('').map((ch, i) => `<span class="ltr" style="--i:${i}">${ch}</span>`).join('');
   U.view('roles', () => `
@@ -59,7 +59,7 @@
     if (r === 'grr' || r === 'grs') return groupHome(U.MY_GROUP, true);
     if (r === 'dir') return U.views_initiative('blood', true);
     if (r === 'chair') return U.views_workspace('ryla');
-    if (r === 'dsgt') return U.views_scan();
+    if (r === 'dsgt' || r === 'adsgt') return U.views_scan();
     if (['pres', 'sec', 'vp', 'jsec'].includes(r)) return clubHome();
     if (r === 'trs') return U.views_wallet();
     return passView();
@@ -229,7 +229,7 @@
     const club = cosmos(), who = U.passPerson();
     const hist = [['Blood Donation Megacamp', '2 Oct', 'On time', 50], ['JOSH District Culturals', '21 Sep', 'Within 15 minutes', 40], ['District Assembly', '10 Aug', 'On time', 50], ['District Orientation', '6 Jul', 'Within 30 minutes', 30]];
     const certs = [['District Assembly 2026', 'Participation'], ['Blood Donation Megacamp', 'Volunteer, 6 hours'], [club.name, 'Project chair, Notebook drive']];
-    return `${head('My pass', 'Show this at district events. A sergeant scans it and your points land instantly.', `<button class="btn ink" data-act="pass-open">${ic('id')}Open full screen</button>`)}
+    return `${head('My pass', 'Show this at the big events and every DRC, where a district sergeant scans it. At other events your club's paid list counts you.', `<button class="btn ink" data-act="pass-open">${ic('id')}Open full screen</button>`)}
     ${U.passNext()}
     <div class="grid-pass">
       ${U.passCard(false)}

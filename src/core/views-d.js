@@ -54,7 +54,8 @@
           : `<div class="card-h"><h2>Seats</h2>${e.quota && U.can.seats() ? `<button class="btn sm ink" data-go="seats" data-arg="${e.id}">Assign seats</button>` : ''}</div>${e.seats ? `<div class="prog"><span class="bt"><i style="--w:${(e.filled / e.seats).toFixed(2)}"></i></span><span class="fig">${e.filled} of ${e.seats}</span></div>` : ''}<p class="note">${e.quota ? 'The district gives each group a pool of seats. The GRR or GRS spreads it over the clubs, and the fee lands in each club wallet.' : 'Clubs confirm their seats here. Fees post to each club wallet automatically.'}</p>`}
       </section>
     </div>
-    ${U.regSummary ? U.regSummary(e) : ''}`;
+    ${U.regSummary ? U.regSummary(e) : ''}
+    ${U.attCard ? U.attCard(e) : ''}`;
   });
 
   /* ---------- chair workspace ---------- */

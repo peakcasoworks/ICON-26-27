@@ -11,7 +11,7 @@
     const r = U.role(), club = U.myClub(), g = D.GROUPS[U.MY_GROUP - 1];
     if (r === 'grr') return { name: g.grr, line: `GRR, Group ${g.id}`, id: 'R3233' + String(900 + g.id).padStart(3, '0'), points: 410 };
     if (r === 'grs') return { name: g.grs, line: `GRS, Group ${g.id}`, id: 'R3233' + String(910 + g.id).padStart(3, '0'), points: 380 };
-    if (['drr', 'drs', 'dt', 'gco', 'dsgt', 'dir', 'chair'].includes(r)) { const t = { drr: 'District Rotaract Representative', drs: 'District Rotaract Secretary', dt: 'District Treasurer', gco: 'Group Coordinator', dsgt: 'Chief Sergeant-at-Arms', dir: 'Chairperson, Blood Donation', chair: 'RYLA Chairman' }[r]; const d = D.designations.find(x => x.title === t); return { name: d ? d.holder : 'District official', line: t, id: 'R3233' + String(800 + (d ? d.id : 0)).padStart(3, '0'), points: 520 }; }
+    if (['drr', 'drs', 'dt', 'gco', 'dsgt', 'adsgt', 'dir', 'chair'].includes(r)) { const t = { adsgt: 'Associate Sergeant-at-Arms', drr: 'District Rotaract Representative', drs: 'District Rotaract Secretary', dt: 'District Treasurer', gco: 'Group Coordinator', dsgt: 'Chief Sergeant-at-Arms', dir: 'Chairperson, Blood Donation', chair: 'RYLA Chairman' }[r]; const d = D.designations.find(x => x.title === t); return { name: d ? d.holder : 'District official', line: t, id: 'R3233' + String(800 + (d ? d.id : 0)).padStart(3, '0'), points: 520 }; }
     const m = D.memberOf(club, 7 % club.members);
     return { name: 'Kayal S.', line: `${U.R().label}, ${club.name}`, id: m.id, points: 170 };
   };
@@ -51,7 +51,7 @@
     return `<section class="card next-ev"><div class="card-h"><h2>Next event</h2>${U.pill(e.status, e.status === 'Planning' ? 'neutral' : 'warn')}</div>
       <p class="big-line">${esc(e.name)}</p><p class="note">${esc(e.date)}${e.full ? '. ' + esc(e.full) : ''}</p>
       <div class="row-btns"><button class="btn ${yes ? '' : 'ink'}" data-act="rsvp" data-id="${e.id}">${ic(yes ? 'check' : 'plus')}${yes ? 'I\'m going. Undo' : 'I\'m going'}</button><button class="btn" data-go="event" data-arg="${e.id}">Event details</button></div>
-      ${yes ? `<p class="note">Show your pass at the door. A sergeant scans it and your points land at once.</p>` : '<p class="note">Say you are coming so your club and the chair can plan.</p>'}</section>`;
+      ${yes ? `<p class="note">If it is a big event or a DRC, show your pass at the door. A district sergeant scans it and your points land at once.</p>` : '<p class="note">Say you are coming so your club and the chair can plan.</p>'}</section>`;
   }
   A['pass-open'] = () => {
     const p = U.passPerson();
@@ -85,7 +85,8 @@
   const FLAG = { qr: 'Code was 3 minutes old, like a screenshot', device: 'The same phone showed two passes', loc: 'Scanned away from the venue', typed: 'Typed in, not scanned', face: 'Face did not match the photo', borrowed: 'Shown on a new phone while the member\'s usual phone is somewhere else', over: 'More people present than this club has seats for', batch: 'Another scan by the same sergeant failed a spot check', unreg: 'Not on the club\'s paid list for this event' };
   const ptsOf = x => x.status === 'ok' ? x.pts : 0;
   U.views_scan = () => {
-    const evs = D.EVENTS.filter(e => e.status !== 'Done');
+    if (!['dsgt', 'adsgt'].includes(U.role())) return `${head('Scan at the door', 'Only the District Sergeant-at-Arms and the Associate District Sergeant-at-Arms scan.')}<section class="card"><div class="empty">${ic('lock')}<b>Scanning is not part of your login</b><span>Attendance for the big events is scanned by the two district sergeants. For every other event it comes from the club's paid list.</span><button class="btn sm" data-go="review">Attendance review</button></div></section>`;
+    const evs = U.scanEvents();
     const e = evs.find(x => x.id === SC.ev) || evs[0]; SC.ev = e.id;
     const list = scans(e.id), ok = list.filter(x => x.status === 'ok'), hold = list.filter(x => x.status === 'review'), pend = SC.pending, last = SC.last;
     const verify = pend ? `<div class="verify"><div class="v-face" aria-label="Photo on file"><span>${esc(pend.m.name.split(' ').map(x => x[0]).join(''))}</span><small>Photo on file</small></div>
@@ -93,7 +94,7 @@
       <ul class="v-checks">${pend.checks.map(c => `<li class="${c.ok ? 'ok' : 'bad'}">${ic(c.ok ? 'check' : 'alert')}<span>${esc(c.t)}</span></li>`).join('')}</ul>
       <p class="note">Look at the person in front of you. Is it the face in the photo?</p>
       <div class="row-btns"><button class="btn ink" data-act="scan-yes">${ic('check')}It is them, check in</button><button class="btn" data-act="scan-no">Not them</button></div></div></div>` : '';
-    return `${head('Scan at the door', 'Scan any club\'s members at the district\'s doors, and clear anything flagged. Each scan is stamped with the time, the place and you.', `<button class="btn" data-go="review">${ic('badge')}Attendance review</button>`)}
+    return `${head('Scan at the door', 'You and the other district sergeant scan every person, one by one, at the big events and each DRC. Clubs do not scan. Each scan is stamped with the time, the place and you.', `<button class="btn" data-go="review">${ic('badge')}Attendance review</button>`)}
     <div class="chips" aria-label="Event">${evs.map(x => `<button class="chip${x.id === e.id ? ' on' : ''}" data-act="scan-ev" data-v="${x.id}" aria-pressed="${x.id === e.id}">${esc(x.name)}</button>`).join('')}</div>
     <div class="stats">${U.fig(ok.length, 'Checked in')}${U.fig(hold.length, 'Held for district review', 'Points wait until cleared')}${U.fig(new Set(ok.map(x => x.club)).size, 'Clubs present')}${U.fig(ok.reduce((a, x) => a + x.pts, 0), 'Points given')}</div>
     <div class="grid-2">
@@ -143,7 +144,7 @@
     const [label, pts] = tier(list.filter(x => x.status === 'ok').length);
     const flags = pd.flags.concat(extra || []);
     const st = status === 'rejected' ? 'rejected' : flags.length ? 'review' : 'ok';
-    list.push({ id: pd.m.id, name: pd.m.name, club: pd.m.club.id, clubName: pd.m.club.name, label, pts, time: clock(), by: 'District Sergeant', where: SC.away ? 'Away' : VENUE, method: pd.method, flags, status: st, event: e.id, photo: true, mismatch: flags.some(f => ['borrowed', 'face', 'device'].includes(f)) });
+    list.push({ id: pd.m.id, name: pd.m.name, club: pd.m.club.id, clubName: pd.m.club.name, label, pts, time: clock(), by: U.role() === 'adsgt' ? 'Associate District Sergeant' : 'District Sergeant', where: SC.away ? 'Away' : VENUE, method: pd.method, flags, status: st, event: e.id, photo: true, mismatch: flags.some(f => ['borrowed', 'face', 'device'].includes(f)) });
     SC.last = st === 'ok' ? { kind: 'ok', title: `${pd.m.name} checked in, +${pts}`, sub: `${pd.m.club.name}, ${label}` } : st === 'review' ? { kind: 'dup', title: `${pd.m.name} is held for review`, sub: 'Flagged: ' + flags.map(f => FLAG[f]).join('. ') + '. Your tap does not release the points. They wait for the district.' } : { kind: 'bad', title: `${pd.m.name} was not checked in`, sub: 'Reported to the district as a possible stand-in.' };
     SC.pending = null; save();
   }
@@ -201,4 +202,9 @@
   };
   A['rv-seen'] = el => { RF.spot = RF.spot.filter(k => k !== el.dataset.ev + '|' + el.dataset.i); U.rerender(); U.toast('Confirmed present'); };
   A['rv-spot'] = () => { const clean = allScans().filter(x => x.status === 'ok'); RF.spot = clean.sort(() => Math.random() - 0.5).slice(0, 5).map(x => x.ev + '|' + x.i); if (!RF.spot.length) U.toast('No clean scans to check yet', 'info'); U.rerender(); };
+
+  /* how attendance is counted for an event, shown on the event page */
+  U.attCard = e => e.scan
+    ? `<section class="card"><div class="card-h"><h2>How attendance is counted</h2>${U.pill('Scanned', 'warn')}</div><p class="note">Big event. The District Sergeant-at-Arms and the Associate District Sergeant-at-Arms scan every person one by one at the door. Clubs do not scan their own members.${e.quota ? ' Only members on the club\'s paid list can be checked in.' : ''}</p></section>`
+    : `<section class="card"><div class="card-h"><h2>How attendance is counted</h2>${U.pill('Paid list', 'ok')}</div><p class="note">No scanning at this event. The members each club registered, by collecting their fee, are the attendance list.</p></section>`;
 })();
