@@ -1,5 +1,5 @@
 // Sparks that spiral in from the edges of the screen and settle on target
-// points: every Rotaractor a spark, together they make the district gear.
+// points: every Rotaractor a spark, together they make the Rotary wheel.
 // Plain 2D canvas, about 500 particles, additive blending for the glow.
 
 const easeInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -43,22 +43,6 @@ export function gather(canvas, targets, { duration = 1500, colors = ['#fff'], cx
   return { stop() { alive = false; cancelAnimationFrame(raf); g.clearRect(0, 0, W, H); } };
 }
 
-// Points along the district gear (18 teeth), its kolam rosette and the dot grid,
-// in the loader gear's own -64..64 coordinate space.
-export function gearPoints(n = 18, ro = 60, rr = 51) {
-  const pts = [];
-  const step = (Math.PI * 2) / n;
-  for (let i = 0; i < n; i++) {
-    const a = i * step;
-    const prof = [[rr, a], [ro, a + step * 0.12], [ro, a + step * 0.42], [rr, a + step * 0.54], [rr, a + step]];
-    for (let j = 0; j < prof.length - 1; j++) {
-      const [r1, t1] = prof[j], [r2, t2] = prof[j + 1];
-      for (let k = 0; k < 4; k++) { const f = k / 4; const r = r1 + (r2 - r1) * f, t = t1 + (t2 - t1) * f; pts.push([Math.cos(t) * r, Math.sin(t) * r]); }
-    }
-  }
-  [[16, 16], [-16, 16], [-16, -16], [16, -16]].forEach(([x, y]) => {
-    for (let k = 0; k < 40; k++) { const t = (k / 40) * Math.PI * 2; pts.push([x + Math.cos(t) * 22.6, y + Math.sin(t) * 22.6]); }
-  });
-  for (let y = -32; y <= 32; y += 16) for (let x = -32; x <= 32; x += 16) for (let k = 0; k < 3; k++) pts.push([x, y]);
-  return pts;
-}
+// Points along every edge of the Rotary wheel (24 cogs, rim, 6 spokes, hub and keyway),
+// in the loader wheel's own -64..64 coordinate space.
+export function gearPoints() { return window.WHEEL.points(60, 1.5); }

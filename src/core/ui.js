@@ -218,7 +218,7 @@
   }
 
   /* ---------- drawn components ---------- */
-  // The district gear: 18 teeth around a kolam knot. Drawn for this demo, not the Rotary mark.
+  // Small cog path, used for the auto's wheels. The logo itself is the Rotary wheel (src/wheel.js).
   function gearPath(n = 18, ro = 47, rr = 40, cx = 50, cy = 50) {
     let d = '';
     for (let i = 0; i < n; i++) {
@@ -230,9 +230,7 @@
   }
   const GEAR = gearPath();
   const KOLAM = 'M50 33c9 0 17 8 17 17s-8 17-17 17-17-8-17-17 8-17 17-17zM33 50c0-6 5-11 11-11M67 50c0 6-5 11-11 11M50 33c-6 0-11 5-11 11M50 67c6 0 11-5 11-11';
-  function gear(cls = '') {
-    return `<svg class="gear ${cls}" viewBox="0 0 100 100" aria-hidden="true"><path class="g-teeth" d="${GEAR}"/><circle class="g-ring" cx="50" cy="50" r="31"/><path class="g-kolam" d="${KOLAM}"/><circle class="g-dot" cx="50" cy="50" r="3.2"/><circle class="g-dot" cx="38" cy="38" r="2"/><circle class="g-dot" cx="62" cy="38" r="2"/><circle class="g-dot" cx="38" cy="62" r="2"/><circle class="g-dot" cx="62" cy="62" r="2"/></svg>`;
-  }
+  function gear(cls = '') { return WHEEL.svg(cls); }
 
   // A small yellow auto, side view, with district gears for wheels.
   const WHEEL = gearPath(10, 6.2, 4.6, 0, 0);
@@ -254,7 +252,7 @@
   // Morning palette in light mode, dusk palette in dark mode.
   let sceneN = 0;
   function scene(cls = '') {
-    const n = ++sceneN;
+    const n = ++sceneN, sunW = WHEEL.paths(600, 168, 58);
     let arches = '', upper = '', lanes = '', ledges = '';
     for (let x = 290; x < 494; x += 22) if (x < 366 || x > 410) arches += `M${x} 247V226q8-11 16 0V247Z`;
     for (let x = 292; x < 494; x += 22) if (x < 366 || x > 410) upper += `M${x} 196h10v12h-10Z`;
@@ -271,7 +269,7 @@
       <g class="stars" data-loop>${[[60, 30], [180, 60], [250, 24], [420, 40], [520, 18], [640, 52], [760, 30], [330, 70]].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="1.4" style="--i:${i}"/>`).join('')}</g>
       <g class="clouds" data-depth="0.18">${[[60, 52, 1, 70], [300, 30, 0.8, 95], [560, 64, 1.15, 80]].map(([x, y, k, d]) => `<g transform="translate(${x} ${y}) scale(${k})"><g class="cloud" style="--t:${d}s"><path d="M0 22q0-13 15-13q5-12 19-8q11-11 24 2q13 0 13 13q0 6-6 6H6q-6 0-6-0z"/></g></g>`).join('')}</g>
       <g class="birds" transform="translate(150 70)"><g class="flock">${[[0, 0], [22, -8], [40, 4], [-18, 10]].map(([x, y], i) => `<path class="bird" style="--i:${i}" d="M${x} ${y}q5-5 10 0q5-5 10 0"/>`).join('')}</g></g>
-      <g class="ly ly-sun" data-depth="0.12"><g class="sun-rise"><g class="sun-spin" data-loop><circle cx="600" cy="168" r="72" class="sun-halo"/><path d="${gearPath(18, 54, 46, 600, 168)}" fill="url(#sunG${n})"/><circle cx="600" cy="168" r="34" class="sun-face"/><path class="sun-kolam" transform="translate(550 118)" d="${KOLAM}"/></g></g></g>
+      <g class="ly ly-sun" data-depth="0.12"><g class="sun-rise"><g class="sun-spin" data-loop><circle cx="600" cy="168" r="72" class="sun-halo"/><path d="${sunW.rim}" fill="url(#sunG${n})" fill-rule="evenodd"/><path d="${sunW.hub}" fill="url(#sunG${n})" fill-rule="evenodd"/><path d="${sunW.spokes}" fill="url(#sunG${n})"/></g></g></g>
       <g class="ly ly-sea" data-depth="0.3"><rect class="sea" x="0" y="226" width="800" height="40"/><g transform="translate(470 238)"><g class="boat" style="--d:0s"><path class="b-hull" d="M0 6h30l-5 5H5z"/><path class="b-sail" d="M14 6V-14L26 4z"/></g></g><g transform="translate(610 244)"><g class="boat" style="--d:-1.4s"><path class="b-hull" d="M0 5h24l-4 4H4z"/><path class="b-sail" d="M11 5V-10L21 3z"/></g></g><g class="shimmer" data-loop><path d="M560 236h40M630 244h24M520 250h30M680 238h30M600 256h36M720 252h22"/></g></g>
       <g class="ly ly-far" data-depth="0.4">
         <g class="via"><rect x="0" y="205" width="800" height="5"/><rect x="10" y="210" width="5" height="18"/><rect x="74" y="210" width="5" height="18"/><rect x="138" y="210" width="5" height="18"/><rect x="202" y="210" width="5" height="18"/><rect x="266" y="210" width="5" height="18"/><rect x="330" y="210" width="5" height="18"/><rect x="394" y="210" width="5" height="18"/><rect x="458" y="210" width="5" height="18"/><rect x="522" y="210" width="5" height="18"/><rect x="586" y="210" width="5" height="18"/><rect x="650" y="210" width="5" height="18"/><rect x="714" y="210" width="5" height="18"/><rect x="778" y="210" width="5" height="18"/></g>

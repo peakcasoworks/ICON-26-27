@@ -1,4 +1,5 @@
 import './styles.css';
+import './wheel.js';
 import './core/data.js';
 import './core/ui.js';
 import './setup.js';
