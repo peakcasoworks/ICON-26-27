@@ -826,3 +826,13 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .joint-box .chip svg { width: 12px; height: 12px; margin-left: 4px; }
 .feat { list-style: none; margin: 22px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px 24px; }
 .feat li { display: flex; gap: 10px; align-items: flex-start; color: var(--ink-2); } .feat .ic { color: var(--ok); margin-top: 3px; flex: none; }
+
+/* DRC and minutes */
+.slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.slot-b { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border: 1px solid var(--rule-2); border-radius: var(--r-ctl); background: var(--cotton); color: var(--ink); font: inherit; cursor: pointer; text-align: left; }
+.slot-b:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+.slot-b small { color: var(--muted); } .slot-b.mine { background: var(--accent); color: var(--on-accent); border-color: var(--accent); } .slot-b.mine small { color: inherit; }
+.slot-b.full, .slot-b:disabled:not(.mine) { opacity: 0.5; cursor: not-allowed; }
+.mom-l { margin: 4px 0 12px; padding-left: 22px; line-height: 1.6; color: var(--ink-2); }
+.mom-doc .stats { margin-bottom: 8px; }
+@media print { .side, .top, .tabbar, .demo-bar, .ph-act, #sheet, .toast, #toast { display: none !important; } .main { margin: 0 !important; } }
