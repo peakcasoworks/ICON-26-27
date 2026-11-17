@@ -16,6 +16,7 @@ npm run dev        # http://localhost:5173
 
 The build is a static site with no server code.
 
+- **Cloudflare Workers (Git build):** build command `npm run build`, deploy command `npx wrangler deploy`. `wrangler.jsonc` points Wrangler at `dist/`, so it skips its own Vite setup step.
 - **Cloudflare Pages:** build command `npm run build`, output directory `dist`. Or from the terminal: `npx wrangler pages deploy dist`.
 - **Netlify, Vercel or GitHub Pages:** the same build command and the `dist` folder. `base: './'` in `vite.config.js` makes it work from any path.
 
@@ -29,7 +30,7 @@ src/motion.js       GSAP: loader timeline, page and card reveals, group race, la
 src/particles.js    canvas sparks that gather into the district gear
 src/search.js       district search (Cmd or Ctrl+K, or /): pages, clubs, 5,839 people, events, initiatives, posts
 src/setup.js        connects motion and search to the app
-src/core/data.js    sample data: 72 clubs, 7 groups, members, events, initiatives, posts
+src/core/data.js    sample data: 70 clubs (49 college, 21 community), 7 groups, members, events, initiatives, posts
 src/core/ui.js      state, router, drawings (gear, Chennai scene, auto, rings, pager)
 src/core/views-*.js every screen, by role
 src/core/views-e.js seats, group desk, roster tools, export, bank matching, colours, start page sections

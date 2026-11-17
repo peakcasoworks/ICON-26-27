@@ -3,7 +3,7 @@
   const KEY = 'icon3233-demo-v1';
   let P = {};
   try { P = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { P = {}; }
-  const blank = () => ({ reports: {}, projects: {}, pay: {}, clubs: {}, newClubs: [], desig: [], inits: [], visits: {}, tasks: {}, gcol: {}, weights: null, nudged: {}, extraNotifs: [], alloc: {}, members: [], posts: {}, theme: 'auto', accent: 'default' });
+  const blank = () => ({ reports: {}, projects: {}, pay: {}, clubs: {}, newClubs: [], desig: [], inits: [], visits: {}, tasks: {}, gcol: {}, weights: null, nudged: {}, extraNotifs: [], alloc: {}, reg: {}, members: [], posts: {}, theme: 'auto', accent: 'default' });
   P = Object.assign(blank(), P);
   if (!P.motion) P.motion = 'on';
   const OS_CALM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -39,16 +39,21 @@
   };
   const projects = (c, mi) => (c.isNew ? [] : D.projectsFor(c, mi)).concat(P.projects[c.id + '|' + mi] || []);
   /* Seats: the district allots a pool to each group, the GRR or GRS spreads it over the group's clubs. */
+  // Scanning at the door is only for the big events and every DRC meeting. Everything else is counted from the club's paid list.
+  const scanEvents = () => D.EVENTS.filter(e => e.scan && e.status !== 'Done');
   const seatEvents = () => D.EVENTS.filter(e => e.quota && e.status !== 'Done');
   const seatsOf = (e, c) => { const a = P.alloc[e.id]; return a && a.club[c.id] != null ? a.club[c.id] : e.quota || 0; };
   const poolOf = (e, g) => { const a = P.alloc[e.id]; return a && a.pool[g] != null ? a.pool[g] : activeClubs().filter(c => groupOf(c) === g).reduce((n, c) => n + (e.quota || 0), 0); };
   const spent = (e, g) => activeClubs().filter(c => groupOf(c) === g).reduce((n, c) => n + seatsOf(e, c), 0);
+  // What a club owes for an event follows who paid it: members pay the club, the club ticks them, and that count is the bill.
+  const regOf = (e, c) => P.reg && P.reg[e.id] && P.reg[e.id][c.id];
   const FEE_OF = { asm: 'assembly', ryla: 'ryla', conf: 'conf' };
   const wallet = c => D.walletFor(c).map(it => {
     const ev = FEE_OF[it.id.split('-').pop()] && D.EVENTS.find(e => e.id === FEE_OF[it.id.split('-').pop()]);
-    const base = ev && ev.fee ? Object.assign({}, it, { amount: seatsOf(ev, c) * ev.fee, detail: seatsOf(ev, c) + (seatsOf(ev, c) === 1 ? ' seat at ' : ' seats at ') + inr(ev.fee) }) : it;
+    const rg = ev && regOf(ev, c), n = rg ? Object.values(rg).filter(x => x.paid).length : ev ? seatsOf(ev, c) : 0;
+    const base = ev && ev.fee ? Object.assign({}, it, { amount: n * ev.fee, detail: n + (n === 1 ? (rg ? ' member paid, at ' : ' seat at ') : (rg ? ' members paid, at ' : ' seats at ')) + inr(ev.fee), skip: !!rg && n === 0 }) : it;
     return Object.assign({}, base, P.pay[it.id] || {});
-  });
+  }).filter(it => !it.skip);
   const gcolor = g => 'var(--sw' + (P.gcol[g] || g) + ')';
 
   const RS = {
@@ -63,44 +68,53 @@
 
   /* ---------- roles ---------- */
   const ROLES = {
-    drr: { label: 'DRR', full: 'District Rotaract Representative', who: 'District', icon: 'gear', nav: ['home', 'reports', 'clubs', 'events', 'finance', 'groups', 'seats', 'initiatives', 'awards', 'designations', 'people', 'visits', 'season'] },
-    drs: { label: 'DRS', full: 'District Rotaract Secretary', who: 'District', icon: 'doc', nav: ['home', 'clubs', 'groups', 'people', 'events', 'visits'] },
+    drr: { label: 'DRR', full: 'District Rotaract Representative', who: 'District', icon: 'gear', nav: ['home', 'reports', 'clubs', 'events', 'finance', 'groups', 'seats', 'drc', 'mom', 'review', 'initiatives', 'awards', 'designations', 'people', 'visits', 'season'] },
+    drs: { label: 'DRS', full: 'District Rotaract Secretary', who: 'District', icon: 'doc', nav: ['home', 'clubs', 'groups', 'people', 'drc', 'mom', 'review', 'events', 'visits'] },
     dt: { label: 'District Treasurer', full: 'District Treasurer', who: 'District', icon: 'rupee', nav: ['home', 'clubs', 'events'] },
-    gco: { label: 'Group Coordinator', full: 'Group Coordinator, all seven groups', who: 'All groups', icon: 'layers', nav: ['home', 'groups', 'reports', 'clubs', 'seats', 'events', 'people', 'initiatives'] },
-    grr: { label: 'GRR, Group 6', full: 'Group Rotaract Representative, Group 6 South', who: 'Group 6', icon: 'layers', nav: ['home', 'reports', 'clubs', 'seats', 'events', 'people', 'initiatives'] },
-    grs: { label: 'GRS, Group 6', full: 'Group Rotaract Secretary, Group 6 South', who: 'Group 6', icon: 'doc', nav: ['home', 'reports', 'clubs', 'seats', 'events', 'people'] },
+    gco: { label: 'Group Coordinator', full: 'Group Coordinator, all seven groups', who: 'All groups', icon: 'layers', nav: ['home', 'groups', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people', 'initiatives'] },
+    grr: { label: 'GRR', full: 'Group Rotaract Representative', who: 'Your group', icon: 'layers', nav: ['home', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people', 'initiatives'] },
+    grs: { label: 'GRS', full: 'Group Rotaract Secretary', who: 'Your group', icon: 'doc', nav: ['home', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people'] },
     dir: { label: 'Director', full: 'Chairperson, Blood Donation', who: 'Every drop counts', icon: 'spark', nav: ['home', 'initiatives', 'events', 'clubs'] },
     chair: { label: 'RYLA Chair', full: 'RYLA Chairman', who: 'RYLA 2026', icon: 'flag', nav: ['home', 'events', 'clubs'] },
-    pres: { label: 'Club President', full: 'President, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'user', nav: ['home', 'monthly', 'wallet', 'visits', 'events', 'initiatives', 'people', 'pass'] },
-    vp: { label: 'Club Vice President', full: 'Vice President, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'user', nav: ['home', 'monthly', 'events', 'initiatives', 'people', 'pass'] },
-    sec: { label: 'Club Secretary', full: 'Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'events', 'people', 'pass'] },
+    pres: { label: 'Club President', full: 'President, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'user', nav: ['home', 'monthly', 'collect', 'wallet', 'drc', 'mom', 'visits', 'events', 'initiatives', 'people', 'pass'] },
+    vp: { label: 'Club Vice President', full: 'Vice President, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'user', nav: ['home', 'monthly', 'collect', 'events', 'initiatives', 'people', 'pass'] },
+    sec: { label: 'Club Secretary', full: 'Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'collect', 'drc', 'mom', 'events', 'people', 'pass'] },
     jsec: { label: 'Joint Secretary', full: 'Joint Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'events', 'people', 'pass'] },
-    trs: { label: 'Club Treasurer', full: 'Treasurer, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'rupee', nav: ['home', 'events', 'people', 'pass'] },
-    sgt: { label: 'Sergeant-at-Arms', full: 'Sergeant-at-Arms, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'badge', nav: ['home', 'events', 'people', 'pass'] },
+    trs: { label: 'Club Treasurer', full: 'Treasurer, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'rupee', nav: ['home', 'collect', 'events', 'people', 'pass'] },
+    adsgt: { label: 'Associate District Sergeant-at-Arms', full: 'Associate District Sergeant-at-Arms', who: 'District events', icon: 'badge', nav: ['home', 'review', 'events'] },
+    dsgt: { label: 'District Sergeant-at-Arms', full: 'Chief Sergeant-at-Arms, District', who: 'District events', icon: 'badge', nav: ['home', 'review', 'events'] },
     mem: { label: 'Member', full: 'Member, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'id', nav: ['home', 'events', 'initiatives', 'awards'] }
   };
   const NAV = {
     home: ['Home', 'home'], reports: ['Reports', 'doc'], clubs: ['Clubs', 'building'], groups: ['Groups', 'layers'], events: ['Events', 'flag'],
     finance: ['Finance', 'rupee'], initiatives: ['Initiatives', 'spark'], awards: ['Scorecard', 'trophy'], designations: ['Designations', 'badge'],
     people: ['People', 'users'], visits: ['DRR visits', 'calendar'], season: ['Season', 'sun'], log: ['Log project', 'plus'],
-    monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id'], seats: ['Seat allotment', 'id']
+    monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id'], seats: ['Seat allotment', 'id'], drc: ['DRC bookings', 'calendar'], mom: ['Minutes', 'doc'], review: ['Attendance review', 'badge'], collect: ['Event fees', 'rupee']
   };
-  const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'Group 6', grs: 'Group 6', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', sgt: 'Club home', trs: 'Club wallet', mem: 'My pass' };
+  const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'My group', grs: 'My group', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', trs: 'Club wallet', dsgt: 'Scan at the door', adsgt: 'Scan at the door', mem: 'My pass' };
+  // The pass sits right after Home for everyone: it is the thing people need first at a door.
+  Object.values(ROLES).forEach(r => { if (r.nav.includes('home') && !(r === ROLES.mem)) { r.nav = r.nav.filter(x => x !== 'pass'); r.nav.splice(1, 0, 'pass'); } });
   const role = () => P.role;
 
   /* ---------- who sees what ---------- */
   // district: every club and person. group: the clubs and people of one group. portfolio: clubs and events, no member lists.
   // club: that club only. Search, the people list, the clubs list and every club page follow this one rule.
-  const SCOPE = { drr: 'district', drs: 'district', dt: 'district', gco: 'district', grr: 'group', grs: 'group', dir: 'portfolio', chair: 'portfolio', pres: 'club', vp: 'club', sec: 'club', jsec: 'club', trs: 'club', sgt: 'club', mem: 'club' };
-  const MY_GROUP = 6;
+  const SCOPE = { drr: 'district', drs: 'district', dt: 'district', gco: 'district', grr: 'group', grs: 'group', dir: 'portfolio', chair: 'portfolio', pres: 'club', vp: 'club', sec: 'club', jsec: 'club', trs: 'club', mem: 'club', dsgt: 'portfolio', adsgt: 'portfolio' };
+  // A GRR or GRS belongs to one group, and that comes from their login. The demo lets you pick which one to try.
+  const myGroup = () => P.myGroup || 6;
   const level = () => SCOPE[P.role] || 'none';
   const COLLEGE_DEMO = D.clubs.find(c => c.type === 'College' && c.name !== 'Senthamizh University' && c.state === 'Active');
   const demoClubs = () => [D.cosmos, COLLEGE_DEMO];
   const myClub = () => demoClubs().find(c => c.id === P.myClub) || D.cosmos;
-  const canSeeClub = c => { const l = level(); return l === 'district' || l === 'portfolio' || (l === 'group' ? groupOf(c) === MY_GROUP : l === 'club' && c.id === myClub().id); };
-  const canSeePerson = m => { const l = level(); return l === 'district' || (l === 'group' ? groupOf(m.club) === MY_GROUP : l === 'club' && m.club.id === myClub().id); };
+  const canSeeClub = c => { const l = level(); return l === 'district' || l === 'portfolio' || (l === 'group' ? groupOf(c) === myGroup() : l === 'club' && c.id === myClub().id); };
+  const canSeePerson = m => { const l = level(); return l === 'district' || (l === 'group' ? groupOf(m.club) === myGroup() : l === 'club' && m.club.id === myClub().id); };
   const visibleClubs = () => clubs().filter(canSeeClub);
-  const roleInfo = id => { const r = ROLES[id] || ROLES.drr, n = myClub().name; return Object.assign({}, r, { who: r.who.replace('Madras Cosmos', n), full: r.full.replace('Madras Cosmos', n) }); };
+  const roleInfo = id => {
+    const r = ROLES[id] || ROLES.drr, n = myClub().name, g = D.GROUPS[myGroup() - 1];
+    const o = Object.assign({}, r, { who: r.who.replace('Madras Cosmos', n), full: r.full.replace('Madras Cosmos', n) });
+    if (SCOPE[id] === 'group') Object.assign(o, { label: `${r.label}, Group ${g.id}`, full: `${r.full}, Group ${g.id} ${g.area}`, who: `Group ${g.id}` });
+    return o;
+  };
   const R = () => roleInfo(P.role);
   const can = {
     sendReport: () => ['pres', 'sec', 'jsec'].includes(P.role),
@@ -174,17 +188,16 @@
       drr: [['16 clubs have not started their October report.', 'reports'], ['Chennai Kolathur asked to become Inactive.', 'clubs'], ['2 new clubs are waiting for charter approval.', 'clubs']],
       drs: [['9 October reports are waiting for you.', 'home'], ['Madras Cosmos sent its October report to GRS.', 'reports']],
       dt: [['14 payments are waiting to be checked.', 'home'], ['RYLA seat fees close on 30 Nov.', 'events']],
-      grr: [['3 clubs in Group 6 have not started October.', 'home'], ['Madras Cosmos report is waiting for your check.', 'reports']],
+      grr: [[`3 clubs in Group ${myGroup()} have not started October.`, 'home'], ['Madras Cosmos report is waiting for your check.', 'reports']],
       dir: [['Chennai Velachery logged 42 units.', 'home'], ['Every drop counts crossed 1,400 units.', 'home']],
       chair: [['Backstage committee has 3 open tasks.', 'home'], ['117 of 180 RYLA seats are filled.', 'home']],
-      pres: [['October report is late. You or your secretary can send it.', 'monthly'], ['Book your DRR official visit before 20 Dec.', 'visits'], ['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'wallet']],
+      pres: [['Collect the RYLA fee from your members and tick who paid.', 'collect'], ['Book your club\'s slot for the DRC on 7 Dec.', 'drc'], ['October report is late. You or your secretary can send it.', 'monthly'], ['Book your DRR official visit before 20 Dec.', 'visits'], ['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'wallet']],
       sec: [['October report is late. You or your president can send it.', 'monthly'], ['November: 2 projects logged, 3 steps left.', 'monthly'], ['Report for November is due on 5 Dec.', 'monthly']],
       trs: [['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'home'], ['Conference delegate fee opens on 1 Dec.', 'home']],
       gco: [['Group 3 has 2 clubs without a GRS check this week.', 'groups'], ['RYLA seat pools are open for the GRRs to spread.', 'seats']],
       grs: [['Madras Cosmos report is waiting for your check.', 'reports'], ['RYLA seats for your group are ready to assign.', 'seats']],
       vp: [['October report is late. The president or secretary can send it.', 'monthly']],
       jsec: [['November: 2 projects logged, 3 steps left.', 'monthly']],
-      sgt: [['Next event: DRC in December. You scan your club at the door.', 'events']],
       mem: [['You earned 50 points at the Blood Donation Megacamp.', 'home'], ['RYLA registration is open.', 'events']]
     }[P.role] || [];
     return P.extraNotifs.filter(n => n.role === P.role).map(n => ({ t: n.t, go: n.go, unread: true })).concat(base.map((b, i) => ({ t: b[0], go: b[1], unread: i < 2 })));
@@ -460,5 +473,5 @@
   const skeletonRows = (n, cols) => Array.from({ length: n }, () => `<tr class="sk-row">${Array.from({ length: cols }, () => '<td><span class="sk"></span></td>').join('')}</tr>`).join('');
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-  window.UI = { gearPath, P, save, blank, KEY, calm, OS_CALM, SCOPE, level, myClub, demoClubs, canSeeClub, canSeePerson, visibleClubs, roleInfo, can, download, seatEvents, seatsOf, poolOf, spent, MY_GROUP, get RM() { return calm(); }, $, $$, esc, num, inr, ic, pct, clubs, club, stateOf, groupOf, activeClubs, report, setReport, projects, wallet, gcolor, RS, PAY, pill, rpill, ppill, gpill, ROLES, NAV, HOME_NAME, role, R, view, go, render, cur: () => cur, setCur: c => { cur = c; }, notifs, sheet, closeSheet, toast, confetti, after, gear, skyline, scene, auto, coffee, mapSVG, ring, spark, bar, tracker, qr, pager, skeletonRows, debounce };
+  window.UI = { gearPath, P, save, blank, KEY, calm, OS_CALM, SCOPE, level, myClub, get MY_GROUP() { return myGroup(); }, demoClubs, canSeeClub, canSeePerson, visibleClubs, roleInfo, can, download, seatEvents, scanEvents, seatsOf, regOf, poolOf, spent, get RM() { return calm(); }, $, $$, esc, num, inr, ic, pct, clubs, club, stateOf, groupOf, activeClubs, report, setReport, projects, wallet, gcolor, RS, PAY, pill, rpill, ppill, gpill, ROLES, NAV, HOME_NAME, role, R, view, go, render, cur: () => cur, setCur: c => { cur = c; }, notifs, sheet, closeSheet, toast, confetti, after, gear, skyline, scene, auto, coffee, mapSVG, ring, spark, bar, tracker, qr, pager, skeletonRows, debounce };
 })();

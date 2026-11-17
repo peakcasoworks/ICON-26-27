@@ -1,7 +1,7 @@
 /* Sample data for the ICON 3233 concept demo.
    Every person, club name and figure here is generated, except the VIBE
-   check-in series and the district totals (72 clubs, 5,839 members),
-   which come from the public VIBE home page in November 2026. */
+   check-in series and the district totals (70 clubs, 5,839 members),
+   which come from the public VIBE home page (3233vibe.com) in November 2026: 70 clubs, 49 college with 5,201 members and 21 community with 638, 5,839 Rotaractors in all. */
 (function () {
   function mulberry32(a) {
     return function () {
@@ -39,27 +39,27 @@
   const clubs = [];
   let cid = 1;
   const usedPlace = new Set();
-  // 24 community clubs: Madras Cosmos plus 23 neighbourhood clubs.
+  // 21 community clubs: Madras Cosmos plus 20 neighbourhood clubs.
   clubs.push({ id: cid++, name: 'Madras Cosmos', type: 'Community', group: 6, place: 'Chromepet' });
   usedPlace.add('Chromepet');
-  for (let i = 0; clubs.length < 24; i++) {
+  for (let i = 0; clubs.length < 21; i++) {
     const g = GROUPS[i % 7];
     const p = g.places.find(x => !usedPlace.has(x));
     if (!p) continue;
     usedPlace.add(p);
     clubs.push({ id: cid++, name: 'Chennai ' + p, type: 'Community', group: g.id, place: p });
   }
-  // 48 college clubs, one of them a very large university club.
+  // 49 college clubs, one of them a very large university club.
   clubs.push({ id: cid++, name: 'Senthamizh University', type: 'College', group: 5, place: 'Porur' });
   const usedCollege = new Set();
-  while (clubs.length < 72) {
+  while (clubs.length < 70) {
     const n = pick(PRE) + ' ' + pick(TYPES);
     if (usedCollege.has(n)) continue;
     usedCollege.add(n);
     const g = GROUPS[clubs.length % 7];
     clubs.push({ id: cid++, name: n, type: 'College', group: g.id, place: pick(g.places) });
   }
-  // Members, scaled so the district total is 5,839.
+  // Members, scaled so the district total is 5,839: 5,201 in college clubs and 638 in community clubs.
   let sum = 0;
   clubs.forEach(c => {
     if (c.name === 'Senthamizh University') c.members = 2988;
@@ -67,15 +67,17 @@
     else c.members = c.type === 'College' ? ri(18, 92) : ri(12, 38);
     sum += c.members;
   });
-  let diff = 5839 - sum, k = 2;
-  while (diff !== 0) {
-    const c = clubs[k % clubs.length];
-    if (c.name !== 'Senthamizh University' && c.name !== 'Madras Cosmos') {
+  const fit = (list, target) => {
+    let diff = target - list.reduce((a, c) => a + c.members, 0), k = 0;
+    while (diff !== 0) {
+      const c = list[k++ % list.length];
+      if (c.name === 'Senthamizh University' || c.name === 'Madras Cosmos') continue;
       const step = diff > 0 ? 1 : -1;
       if (c.members + step >= 10) { c.members += step; diff -= step; }
     }
-    k++;
-  }
+  };
+  fit(clubs.filter(c => c.type === 'College'), 5201);
+  fit(clubs.filter(c => c.type === 'Community'), 638);
   clubs.forEach(c => {
     const g = GROUPS[c.group - 1];
     const a = R() * Math.PI * 2, d = Math.sqrt(R()) * g.r;
@@ -178,13 +180,15 @@
   const EVENTS = [
     { id: 'orient', name: 'District Orientation', kind: 'Training', date: '6 Jul 2026', m: 0, status: 'Done', chair: person(), attendance: 612, health: 100, site: 'quick' },
     { id: 'dols', name: 'DOLS', full: 'District Officers Leadership Seminar', kind: 'Training', date: '13 Jul 2026', m: 0, status: 'Done', chair: person(), attendance: 104, health: 100, site: 'quick' },
-    { id: 'assembly', name: 'District Assembly', kind: 'Flagship', date: '10 Aug 2026', m: 1, status: 'Done', chair: person(), attendance: 1140, health: 100, site: 'own', quota: 6, fee: 500 },
-    { id: 'josh', name: 'JOSH District Culturals', kind: 'Culturals', date: '21 Sep 2026', m: 2, status: 'Done', chair: person(), attendance: 1820, health: 100, site: 'own', fee: 1500 },
+    { id: 'assembly', scan: true, name: 'District Assembly', kind: 'Flagship', date: '10 Aug 2026', m: 1, status: 'Done', chair: person(), attendance: 1140, health: 100, site: 'own', quota: 6, fee: 500 },
+    { id: 'josh', scan: true, name: 'JOSH District Culturals', kind: 'Culturals', date: '21 Sep 2026', m: 2, status: 'Done', chair: person(), attendance: 1820, health: 100, site: 'own', fee: 1500 },
     { id: 'blood', name: 'Blood Donation Megacamp', kind: 'Service', date: '2 Oct 2026', m: 3, status: 'Done', chair: person(), attendance: 860, health: 100, site: 'quick' },
-    { id: 'drc', name: 'DRC, December', full: 'District Rotaract Council meeting', kind: 'Council', date: '7 Dec 2026', m: 5, status: 'Booking open', chair: person(), health: 82, site: 'quick', quota: 2 },
-    { id: 'ryla', name: 'RYLA', full: 'Rotary Youth Leadership Awards', kind: 'Flagship', date: '19 to 21 Dec 2026', m: 5, status: 'Registration open', chair: person(), health: 64, site: 'own', quota: 2, fee: 1800, seats: 180, filled: 117 },
+    { id: 'drc', scan: true, name: 'DRC, December', full: 'District Rotaract Council meeting', kind: 'Council', date: '7 Dec 2026', m: 5, status: 'Booking open', chair: person(), health: 82, site: 'quick', quota: 2 },
+    { id: 'drc-jan', scan: true, name: 'DRC, January', full: 'District Rotaract Council meeting', kind: 'Council', date: '11 Jan 2027', m: 6, status: 'Planning', chair: person(), health: 30, site: 'quick', quota: 2 },
+    { id: 'drc-feb', scan: true, name: 'DRC, February', full: 'District Rotaract Council meeting', kind: 'Council', date: '8 Feb 2027', m: 7, status: 'Planning', chair: person(), health: 20, site: 'quick', quota: 2 },
+    { id: 'ryla', scan: true, name: 'RYLA', full: 'Rotary Youth Leadership Awards', kind: 'Flagship', date: '19 to 21 Dec 2026', m: 5, status: 'Registration open', chair: person(), health: 64, site: 'own', quota: 2, fee: 1800, seats: 180, filled: 117 },
     { id: 'hya', name: 'Half-Yearly Awards', kind: 'Awards', date: '24 Jan 2027', m: 6, status: 'Planning', chair: person(), health: 41, site: 'quick' },
-    { id: 'conf', name: 'District Conference', kind: 'Flagship', date: '20 to 22 Feb 2027', m: 7, status: 'Planning', chair: person(), health: 28, site: 'own', quota: 8, fee: 750 },
+    { id: 'conf', scan: true, name: 'District Conference', kind: 'Flagship', date: '20 to 22 Feb 2027', m: 7, status: 'Planning', chair: person(), health: 28, site: 'own', quota: 8, fee: 750 },
     { id: 'wrw', name: 'World Rotaract Week', kind: 'Campaign', date: '9 to 15 Mar 2027', m: 8, status: 'Planning', chair: person(), health: 18, site: 'quick' },
     { id: 'pels', name: 'PELS and SELS', full: 'President-elect and Secretary-elect Leadership Seminar', kind: 'Training', date: '16 May 2027', m: 10, status: 'Planning', chair: person(), health: 6, site: 'quick' },
     { id: 'annual', name: 'Annual Awards', kind: 'Awards', date: '20 Jun 2027', m: 11, status: 'Planning', chair: person(), health: 4, site: 'own' }
@@ -244,7 +248,7 @@
     if (dow === 0 || dow === 6) visits.push({ id: 'v' + d + 'a', day, mon, dow, time: '10:00 am' });
     if (dow >= 1 && dow <= 5 && vr() > 0.35) visits.push({ id: 'v' + d + 'b', day, mon, dow, time: '6:30 pm' });
   }
-  visits.forEach(v => { if (vr() > 0.55) v.club = clubs[1 + Math.floor(vr() * 70)].id; });
+  visits.forEach(v => { if (vr() > 0.55) v.club = clubs[1 + Math.floor(vr() * (clubs.length - 1))].id; });
 
   // Real series from the VIBE public home page, November 2026.
   const checkins = [ { m: 'Jul', v: 248 }, { m: 'Aug', v: 183 }, { m: 'Sep', v: 152 }, { m: 'Oct', v: 36 }, { m: 'Nov', v: 57 } ];

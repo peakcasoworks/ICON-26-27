@@ -14,9 +14,10 @@
     const joint = ps.filter(p => p.joint).length;
     const top = ps.slice().sort((a, b) => b.beneficiaries - a.beneficiaries)[0];
     let s = `In ${m} 2026, the Rotaract Club of ${c.name} ran ${ps.length} project${ps.length > 1 ? 's' : ''} across ${listJoin(av)}. ${num(vol)} volunteers gave ${num(hrs)} hours of service`;
-    s += ben ? ` and reached ${num(ben)} people.` : '.';
-    if (top && top.beneficiaries) s += ` The largest was ${top.name}, reaching ${num(top.beneficiaries)}.`;
-    if (joint) s += ` ${joint} project${joint > 1 ? 's were' : ' was'} run jointly with other clubs.`;
+    s += ben ? ` and benefited ${num(ben)} people.` : '.';
+    if (top && top.beneficiaries) s += ` The largest was ${top.name}, with ${num(top.beneficiaries)} beneficiaries.`;
+    const partners = [...new Set(ps.flatMap(p => p.jointWith || []))];
+    if (joint) s += ` ${joint} project${joint > 1 ? 's were' : ' was'} run jointly with ${partners.length ? listJoin(partners) : 'other clubs'}.`;
     if (extra.meetings) s += ` The board met ${extra.meetings} time${extra.meetings > 1 ? 's' : ''} and general attendance was ${extra.att}%.`;
     if (extra.joins) s += ` ${extra.joins} new member${extra.joins > 1 ? 's' : ''} joined.`;
     return s;
@@ -33,7 +34,7 @@
       { k: 'meetings', t: 'Meetings and attendance', done: !!d.meetings },
       { k: 'members', t: 'Membership changes', done: d.joins != null },
       { k: 'fees', t: fees ? 'No overdue fees' : 'Clear overdue fees', done: fees },
-      { k: 'submit', t: 'Send to president', done: !['none', 'draft', 'returned'].includes(r.status) }
+      { k: 'submit', t: 'Send to GRS', done: !['none', 'draft', 'returned'].includes(r.status) }
     ];
   };
 
@@ -97,21 +98,40 @@
     </div>
     <section class="card">
       <div class="card-h"><h2>Projects</h2></div>
-      ${ps.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Project</th><th>Date</th><th>Avenue</th><th>Focus</th><th class="r">Hours</th><th class="r">Reached</th></tr></thead><tbody>${ps.map(p => `<tr><td>${esc(p.name)}${p.joint ? ' ' + U.pill('Joint', 'neutral') : ''}</td><td class="fig">${p.day} Oct</td><td>${esc(p.avenue)}</td><td>${esc(p.focus.join(', '))}</td><td class="fig r">${p.manHours}</td><td class="fig r">${num(p.beneficiaries)}</td></tr>`).join('')}</tbody></table></div>` : `<div class="empty">${ic('doc')}<b>No projects this month</b><span>The club marked October as a quiet month.</span></div>`}
+      ${ps.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Project</th><th>Date</th><th>Avenue</th><th>Focus</th><th class="r">Hours</th><th class="r">Beneficiaries</th></tr></thead><tbody>${ps.map(p => `<tr><td>${esc(p.name)}${p.joint ? ' ' + U.pill('Joint', 'neutral') : ''}</td><td class="fig">${p.day} Oct</td><td>${esc(p.avenue)}</td><td>${esc(p.focus.join(', '))}</td><td class="fig r">${p.manHours}</td><td class="fig r">${num(p.beneficiaries)}</td></tr>`).join('')}</tbody></table></div>` : `<div class="empty">${ic('doc')}<b>No projects this month</b><span>The club marked October as a quiet month.</span></div>`}
     </section>
     ${hist.length ? `<section class="card"><div class="card-h"><h2>Activity</h2></div><ul class="kv">${hist.map(h => `<li><span>${esc(h.t)}</span><small class="sub">${h.at}</small></li>`).join('')}</ul></section>` : ''}`;
   });
 
   /* ---------- log a project: taps, steppers, chips ---------- */
-  const LF = { av: 'Community Service', focus: ['Environment'], vol: 12, hrs: 3, ben: 50, joint: false, out: ['Awareness created'], photos: 0 };
+  const LF = { av: 'Community Service', focus: ['Environment'], vol: 12, hrs: 3, ben: 50, joint: false, jointClubs: [], out: ['Awareness created'], photos: 0, text: null, editing: false };
   U.LF = LF;
   const OUTCOMES = ['Awareness created', 'Items distributed', 'Funds raised', 'Skills taught', 'Trees planted', 'Health screened', 'Waste cleared'];
-  function logPreview() {
+  // The text the district reads: written from the taps, and the club can rewrite it. Once rewritten it stays as typed until reset.
+  function autoText() {
     const name = (U.$('#lpName') && U.$('#lpName').value.trim()) || 'This project';
     const place = (U.$('#lpVenue') && U.$('#lpVenue').value.trim()) || 'Chromepet';
-    return `${esc(name)} was a ${LF.av.toLowerCase()} project at ${esc(place)}. ${LF.vol} volunteers gave ${LF.vol * LF.hrs} hours${LF.ben ? ` and reached ${num(LF.ben)} people` : ''}. Focus: ${esc(LF.focus.join(', ').toLowerCase() || 'not set')}. Outcome: ${esc(LF.out.join(', ').toLowerCase() || 'not set')}${LF.joint ? '. Run jointly with Chennai Velachery' : ''}.`;
+    const joint = LF.joint && LF.jointClubs.length ? `. Run jointly with ${listJoin(LF.jointClubs.map(id => U.club(id).name))}` : '';
+    return `${name} was a ${LF.av.toLowerCase()} project at ${place}. ${LF.vol} volunteers gave ${LF.vol * LF.hrs} hours${LF.ben ? ` and benefited ${num(LF.ben)} people` : ''}. Focus: ${LF.focus.join(', ').toLowerCase() || 'not set'}. Outcome: ${LF.out.join(', ').toLowerCase() || 'not set'}${joint}.`;
   }
-  U.logPreview = logPreview;
+  U.logPreview = () => esc(LF.text != null ? LF.text : autoText());
+  function previewHTML() {
+    const custom = LF.text != null;
+    if (LF.editing) return `<label class="sr" for="lpText">Text the district will read</label><textarea id="lpText" class="prompt plain" rows="7" data-on="lp-edit">${esc(custom ? LF.text : autoText())}</textarea>
+      <div class="row-btns"><button type="button" class="btn sm ink" data-act="lp-edit-done">Done</button><button type="button" class="btn sm" data-act="lp-reset">Back to automatic text</button></div>`;
+    return `<p class="gen" id="lpPreview">${U.logPreview()}</p>${custom ? `<p class="note">${U.pill('Edited by you', 'neutral')} It will not change when you tap options.</p>` : ''}
+      <div class="row-btns"><button type="button" class="btn sm" data-act="lp-edit-start">${ic('pen')}Edit the text</button>${custom ? '<button type="button" class="btn sm" data-act="lp-reset">Back to automatic text</button>' : ''}</div>`;
+  }
+  U.paintPreview = () => { if (LF.editing) return; const b = U.$('#lpPrev'); if (b) b.innerHTML = previewHTML(); };
+  U.lpPrevHTML = previewHTML;
+  function jointHTML() {
+    if (!LF.joint) return '';
+    const me = U.myClub().id, list = U.activeClubs().filter(c => c.id !== me && !LF.jointClubs.includes(c.id));
+    return `<div class="joint-box"><label class="field" for="lpClub"><span>Which club or clubs did you run it with?</span><input id="lpClub" list="lpClubs" placeholder="Start typing a club name" autocomplete="off" data-on="lp-club"></label>
+      <datalist id="lpClubs">${list.map(c => `<option value="${esc(c.name)}">`).join('')}</datalist>
+      <div class="chips">${LF.jointClubs.map(id => `<button type="button" class="chip on" data-act="lp-club-x" data-id="${id}" aria-label="Remove ${esc(U.club(id).name)}">${esc(U.club(id).name)} ${ic('x')}</button>`).join('') || '<small class="muted">Pick at least one club.</small>'}</div></div>`;
+  }
+  U.lpJointHTML = jointHTML;
   const stepper = (k, label, v, step, unit) => `<div class="stepper"><span class="st-lbl">${label}</span><div class="st-ctl"><button class="stp" data-act="step" data-k="${k}" data-d="-${step}" aria-label="Fewer ${label.toLowerCase()}">${ic('minus')}</button><output class="fig" id="out-${k}">${v}</output><button class="stp" data-act="step" data-k="${k}" data-d="${step}" aria-label="More ${label.toLowerCase()}">${ic('plus')}</button></div>${unit ? `<small>${unit}</small>` : ''}</div>`;
   U.view('log', () => {
     const chips = (k, opts, multi) => opts.map(o => { const on = multi ? LF[k].includes(o) : LF[k] === o; return `<button class="chip${on ? ' on' : ''}" data-act="lp-chip" data-k="${k}" data-v="${esc(o)}" data-multi="${multi ? 1 : ''}" aria-pressed="${on}">${esc(o)}</button>`; }).join('');
@@ -126,19 +146,20 @@
         </div>
         <fieldset class="field"><legend>Avenue</legend><div class="chips">${chips('av', D.AVENUES)}</div></fieldset>
         <fieldset class="field"><legend>Area of focus</legend><div class="chips">${chips('focus', D.FOCUS, true)}</div></fieldset>
-        <div class="steppers">${stepper('vol', 'Volunteers', LF.vol, 1)}${stepper('hrs', 'Hours each', LF.hrs, 1)}${stepper('ben', 'People reached', LF.ben, 10)}</div>
+        <div class="steppers">${stepper('vol', 'Volunteers', LF.vol, 1)}${stepper('hrs', 'Hours each', LF.hrs, 1)}${stepper('ben', 'Number of beneficiaries', LF.ben, 10)}</div>
         <p class="calc">Service hours worked out for you: <b class="fig" id="out-mh">${LF.vol * LF.hrs}</b></p>
         <fieldset class="field"><legend>Outcome</legend><div class="chips">${chips('out', OUTCOMES, true)}</div></fieldset>
         <div class="field-row">
           <label class="toggle-row" for="lpJoint"><input type="checkbox" role="switch" class="sw" id="lpJoint" ${LF.joint ? 'checked' : ''} data-on="lp-joint"><span>Joint project with another club</span></label>
           <label class="file" for="lpPhotos">${ic('upload')}<span id="photoLbl">${LF.photos ? LF.photos + ' photos added' : 'Add photos'}</span><input id="lpPhotos" type="file" accept="image/*" multiple data-on="lp-photos"></label>
         </div>
+        <div id="lpJointBox">${jointHTML()}</div>
         <div class="form-act"><button class="btn ink" type="submit">${ic('check')}Save project</button><span class="muted">Saved to November for ${esc(U.myClub().name)}</span></div>
       </form>
       <aside class="card preview">
         <div class="card-h"><h2>What the district will read</h2></div>
-        <p class="gen" id="lpPreview">${logPreview()}</p>
-        <p class="note">Written by simple rules from your taps. No AI needed. You can edit the text before you send the report.</p>
+        <div id="lpPrev">${previewHTML()}</div>
+        <p class="note">Written by simple rules from your taps. No AI needed. Edit it to say it your way, and it is saved with the project.</p>
       </aside>
     </div>`;
   });
@@ -163,7 +184,7 @@
         </section>
         <section class="card">
           <div class="card-h"><h2>1. Projects</h2><span class="muted">Filled from your log</span></div>
-          ${ps.length ? `<ul class="kv">${ps.map(p => `<li><span><b>${esc(p.name)}</b><small class="sub">${p.day} ${m.label.slice(0, 3)}, ${esc(p.avenue)}</small></span><b class="fig">${p.manHours} h</b></li>`).join('')}</ul>` : `<div class="empty sm">${ic('doc')}<b>No projects logged for ${m.label}</b><span>Log one, or tell us it was a quiet month.</span></div>`}
+          ${ps.length ? `<ul class="kv">${ps.map(p => `<li><span><b>${esc(p.name)}</b><small class="sub">${p.day} ${m.label.slice(0, 3)}, ${esc(p.avenue)}${p.jointWith && p.jointWith.length ? ', with ' + esc(listJoin(p.jointWith)) : ''}</small>${p.text ? `<small class="sub">${esc(p.text)}</small>` : ''}</span><b class="fig">${p.manHours} h</b></li>`).join('')}</ul>` : `<div class="empty sm">${ic('doc')}<b>No projects logged for ${m.label}</b><span>Log one, or tell us it was a quiet month.</span></div>`}
           <div class="row-btns">${locked ? '' : `<button class="btn" data-go="log">${ic('plus')}Log a project</button><button class="btn" data-act="quiet" data-m="${mi}">Quiet month</button>`}</div>
           ${d.nothing ? `<p class="callout">${ic('info')}Marked as a quiet month: ${esc(d.reason)}.</p>` : ''}
         </section>

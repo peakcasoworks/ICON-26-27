@@ -21,13 +21,13 @@
   }).join('')}</div>`;
 
   /* ---------- role picker ---------- */
-  const ORDER = [['District', ['drr', 'drs', 'dt', 'gco']], ['Group and portfolio', ['grr', 'grs', 'dir', 'chair']], ['Club', ['pres', 'vp', 'sec', 'jsec', 'trs', 'sgt', 'mem']]];
+  const ORDER = [['District', ['drr', 'drs', 'dt', 'gco', 'dsgt', 'adsgt']], ['Group and portfolio', ['grr', 'grs', 'dir', 'chair']], ['Club', ['pres', 'vp', 'sec', 'jsec', 'trs', 'mem']]];
   const ROLE_NOTE = {
     drr: 'Command centre, approvals, season setup', drs: 'Review every monthly report', dt: 'Dues, event fees, payment checks',
-    grr: 'Chase and check your group\'s clubs', dir: 'Run a district initiative', chair: 'Committees and tasks for RYLA',
-    gco: 'Every GRR and GRS, club moves, seats', grs: 'Check your group\'s reports with the GRR',
+    grr: 'Chase and check the clubs of your own group', dir: 'Run a district initiative', chair: 'Committees and tasks for RYLA',
+    gco: 'Every GRR and GRS, club moves, seats', grs: 'Check your own group\'s reports with the GRR',
     pres: 'Send reports, add members, book the DRR visit', vp: 'See reports, roster and events', sec: 'Log projects, send the report, keep the roster', jsec: 'Log projects and help send the report',
-    trs: 'Pay dues and event fees in one go', sgt: 'Scan members in at events', mem: 'Pass, points, certificates'
+    trs: 'Pay dues and event fees in one go', dsgt: 'Scan every member in at the big events and each DRC', adsgt: 'Scan with the District Sergeant at the big events and each DRC', mem: 'Pass, points, certificates'
   };
   const letters = w => w.split('').map((ch, i) => `<span class="ltr" style="--i:${i}">${ch}</span>`).join('');
   U.view('roles', () => `
@@ -41,10 +41,11 @@
     </section>
     ${U.landingSections()}
     <section class="roles-wrap" id="roles">
-      <div class="role-intro"><span class="eyebrow">Sign in</span><h2 class="sec-h">Choose your role</h2><p class="lede">In the real site you sign in with your own login and see only your seat. In this demo, pick a seat to try it.</p></div>
+      <div class="role-intro"><span class="eyebrow">Sign in</span><h2 class="sec-h">Choose your role</h2><p class="lede">In the real site you sign in with your own login and see only your seat: a GRR or GRS lands in their own group, a club officer in their own club. In this demo, pick a seat to try it.</p>
+        <div class="demo-pick"><b>Demo only</b><span>A GRR or GRS belongs to one group. Which group should they be in?</span><div class="chips" role="radiogroup" aria-label="Group">${D.GROUPS.map(g => `<button type="button" class="chip${U.MY_GROUP === g.id ? ' on' : ''}" role="radio" aria-checked="${U.MY_GROUP === g.id}" data-act="demo-group" data-g="${g.id}">Group ${g.id}</button>`).join('')}</div></div></div>
       ${ORDER.map(([g, ids]) => `<div class="role-group"><h2>${g}</h2><div class="role-grid">${ids.map(id => {
         const r = U.roleInfo(id);
-        return `<button class="role-card" data-act="pick-role" data-role="${id}"><span class="avatar">${ic(r.icon)}</span><span class="rc-t"><b>${esc(r.label)}</b><small>${esc(ROLE_NOTE[id])}</small></span>${ic('right', 'rc-go')}</button>`;
+        return `<button class="role-card" data-act="pick-role" data-role="${id}"><span class="avatar">${ic(r.icon)}</span><span class="rc-t"><b>${esc(U.ROLES[id].label)}</b><small>${esc(ROLE_NOTE[id])}</small></span>${ic('right', 'rc-go')}</button>`;
       }).join('')}</div></div>`).join('')}
     </section>`);
 
@@ -55,10 +56,11 @@
     if (r === 'drs') return U.views_reports(true);
     if (r === 'dt') return U.views_finance();
     if (r === 'gco') return U.views_gco();
-    if (r === 'grr' || r === 'grs') return groupHome(6, true);
+    if (r === 'grr' || r === 'grs') return groupHome(U.MY_GROUP, true);
     if (r === 'dir') return U.views_initiative('blood', true);
     if (r === 'chair') return U.views_workspace('ryla');
-    if (['pres', 'sec', 'vp', 'jsec', 'sgt'].includes(r)) return clubHome();
+    if (r === 'dsgt' || r === 'adsgt') return U.views_scan();
+    if (['pres', 'sec', 'vp', 'jsec'].includes(r)) return clubHome();
     if (r === 'trs') return U.views_wallet();
     return passView();
   });
@@ -191,7 +193,8 @@
     const evs = D.EVENTS.filter(e => e.status !== 'Done').slice(0, 3);
     const octAction = U.can.sendReport() && ['draft', 'none', 'returned'].includes(oct.status) ? `<button class="btn ink" data-go="monthly" data-arg="3">${ic('send')}Finish and send October</button>` : '';
     return `<div class="g-band" style="--g:${U.gcolor(c.group)}"><span>Rotaract Club of ${esc(c.name)}</span><small>Group ${U.groupOf(c)}, ${c.type.toLowerCase()} club since ${c.chartered}, ${c.members} members</small></div>
-    ${head('Club home', r === 'pres' ? 'Send reports, keep fees clear and book your DRR visit.' : r === 'sgt' ? 'Scan your members in at district events.' : 'Log each project the day it happens. The monthly report then builds itself.', `<button class="btn ink" data-go="log">${ic('plus')}Log a project</button>`)}
+    ${head('Club home', r === 'pres' ? 'Send reports, keep fees clear and book your DRR visit.' : 'Log each project the day it happens. The monthly report then builds itself.', `<button class="btn ink" data-go="log">${ic('plus')}Log a project</button>`)}
+    ${U.passStrip()}
     <div class="grid-club">
       <section class="card hero-card">
         <div class="card-h"><h2>November report</h2><span class="muted">Due 5 December, in 19 days</span></div>
@@ -223,19 +226,15 @@
 
   /* ---------- member pass ---------- */
   function passView() {
-    const club = cosmos(), m = D.memberOf(club, 7 % club.members), name = 'Kayal S.';
+    const club = cosmos(), who = U.passPerson();
     const hist = [['Blood Donation Megacamp', '2 Oct', 'On time', 50], ['JOSH District Culturals', '21 Sep', 'Within 15 minutes', 40], ['District Assembly', '10 Aug', 'On time', 50], ['District Orientation', '6 Jul', 'Within 30 minutes', 30]];
     const certs = [['District Assembly 2026', 'Participation'], ['Blood Donation Megacamp', 'Volunteer, 6 hours'], [club.name, 'Project chair, Notebook drive']];
-    return `${head('My pass', 'Show this at district events. A sergeant scans it and your points land instantly.')}
+    return `${head('My pass', 'Show this at the big events and every DRC, where a district sergeant scans it. At other events the paid list of your club counts you.', `<button class="btn ink" data-act="pass-open">${ic('id')}Open full screen</button>`)}
+    ${U.passNext()}
     <div class="grid-pass">
-      <section class="pass">
-        <div class="pass-top">${U.gear()}<div><b>${U.P.season === 'vibe' ? 'VIBE' : 'ICON'} 3233</b><small>Identity pass</small></div></div>
-        <div class="pass-qr">${U.qr(3233)}</div>
-        <div class="pass-who"><b>${name}</b><span>Rotaract Club of ${esc(club.name)}</span><span class="fig">${m.id}</span></div>
-        <p class="pass-note">Sample pass. Not scannable.</p>
-      </section>
+      ${U.passCard(false)}
       <div class="col">
-        <div class="stats two">${fig(170, 'Points this year')}${fig(3, 'Rank in your club', 'of ' + club.members + ' members')}</div>
+        <div class="stats two">${fig(who.points, 'Points this year')}${U.level() === 'club' ? fig(3, 'Rank in your club', 'of ' + club.members + ' members') : fig(U.level() === 'district' ? 1 : 2, 'Rank among officials')}</div>
         <section class="card">
           <div class="card-h"><h2>Check-ins</h2></div>
           <ul class="kv">${hist.map(h => `<li><span><b>${h[0]}</b><small class="sub">${h[1]}, ${h[2]}</small></span><b class="fig">+${h[3]}</b></li>`).join('')}</ul>
@@ -269,7 +268,7 @@
         <button class="btn ${P.season === s[0] ? '' : 'ink'}" data-act="season" data-s="${s[0]}" ${P.season === s[0] ? 'disabled' : ''}>${P.season === s[0] ? 'Showing now' : 'Preview this skin'}</button>
       </section>`).join('')}
     </div>
-    <section class="card callout">${ic('palette')}<p><b>Overall colour.</b> Pick an accent colour and light or dark for the whole site. Everyone can do it for themselves, and the DRR sets the season's default.</p><button class="btn" data-act="colours">Choose colours</button></section>
+    <section class="card callout">${ic('palette')}<p><b>District accent colour.</b> The DRR and the DRS pick the accent colour everyone sees. Each person still chooses light or dark for themselves.</p><button class="btn" data-act="colours">Choose colours</button></section>
     <section class="card">
       <div class="card-h"><h2>Handover to the next DRR</h2></div>
       <ol class="timeline">

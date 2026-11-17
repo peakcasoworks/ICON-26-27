@@ -21,9 +21,11 @@
       const clubs = U.demoClubs();
       U.sheet(`<h2 class="sh-h">Switch role</h2><p class="note">Same demo, different seat. Each login sees only what its job needs: a club sees its own club, a group lead sees the group, the district sees everything.</p>
         <fieldset class="field"><legend>Club for the club roles</legend><div class="chips" role="radiogroup">${clubs.map(c => `<button type="button" class="chip${U.myClub().id === c.id ? ' on' : ''}" role="radio" aria-checked="${U.myClub().id === c.id}" data-act="demo-club" data-id="${c.id}">${esc(c.name)}<small class="chip-tag">${c.type.toLowerCase()}</small></button>`).join('')}</div></fieldset>
+        <fieldset class="field"><legend>Group for GRR and GRS</legend><div class="chips" role="radiogroup">${D.GROUPS.map(g => `<button type="button" class="chip${U.MY_GROUP === g.id ? ' on' : ''}" role="radio" aria-checked="${U.MY_GROUP === g.id}" data-act="demo-group" data-g="${g.id}">Group ${g.id}</button>`).join('')}</div></fieldset>
         <div class="role-list">${Object.keys(U.ROLES).map(id => { const r = U.roleInfo(id); return `<button class="role-card${P.role === id ? ' on' : ''}" data-act="pick-role" data-role="${id}"><span class="avatar">${ic(r.icon)}</span><span class="rc-t"><b>${esc(r.label)}</b><small>${esc(r.full)}</small></span></button>`; }).join('')}</div>
         <button class="btn full" data-act="landing">Back to the start page</button>`);
     },
+    'demo-group'(el) { P.myGroup = Number(el.dataset.g); save(); if (U.cur().view === 'roles') rerender(); else { stack.length = 0; U.closeSheet(); U.go('home'); } U.toast('GRR and GRS roles now belong to Group ' + P.myGroup); },
     'demo-club'(el) { P.myClub = Number(el.dataset.id); save(); stack.length = 0; U.closeSheet(); U.go('home'); U.toast('Club roles now show ' + U.myClub().name + ', a ' + U.myClub().type.toLowerCase() + ' club'); },
     landing() { U.closeSheet(); U.go('roles'); },
     'to-roles'() { const r = $('#roles'); if (r) window.scrollTo({ top: r.getBoundingClientRect().top + window.scrollY - 8, behavior: U.calm() ? 'auto' : 'smooth' }); },
@@ -117,14 +119,18 @@
       U.LF[k] = Math.max(k === 'ben' ? 0 : 1, Math.min(k === 'hrs' ? 24 : 5000, U.LF[k] + d));
       $('#out-' + k).textContent = U.LF[k];
       $('#out-mh').textContent = U.LF.vol * U.LF.hrs;
-      $('#lpPreview').innerHTML = U.logPreview();
+      U.paintPreview();
     },
     'lp-chip'(el) {
       const k = el.dataset.k, v = el.dataset.v;
       if (el.dataset.multi) { const a = U.LF[k]; const i = a.indexOf(v); if (i > -1) a.splice(i, 1); else a.push(v); el.classList.toggle('on'); el.setAttribute('aria-pressed', i < 0); }
       else { U.LF[k] = v; $$(`[data-act="lp-chip"][data-k="${k}"]`).forEach(c => { c.classList.toggle('on', c === el); c.setAttribute('aria-pressed', c === el); }); }
-      $('#lpPreview').innerHTML = U.logPreview();
+      U.paintPreview();
     },
+    'lp-club-x'(el) { U.LF.jointClubs = U.LF.jointClubs.filter(id => id !== Number(el.dataset.id)); $('#lpJointBox').innerHTML = U.lpJointHTML(); U.paintPreview(); },
+    'lp-edit-start'() { U.LF.editing = true; if (U.LF.text == null) U.LF.text = $('#lpPreview') ? $('#lpPreview').textContent : ''; $('#lpPrev').innerHTML = U.lpPrevHTML(); const t = $('#lpText'); if (t) t.focus(); },
+    'lp-edit-done'() { U.LF.editing = false; U.LF.text = ($('#lpText').value || '').trim() || null; U.paintPreview(); },
+    'lp-reset'() { U.LF.text = null; U.LF.editing = false; U.paintPreview(); },
 
     /* monthly report */
     'm-step'(el) {
@@ -175,7 +181,7 @@
     },
     cert(el) {
       const c = U.certs[Number(el.dataset.i)];
-      U.sheet(`<div class="cert"><div class="cert-in">${U.gear()}<small>Rotaract District 3233</small><h2>Certificate of ${c[1].startsWith('Participation') ? 'participation' : 'service'}</h2><p>Presented to</p><b class="cert-name">Kayal S.</b><p>${esc(c[1])}, ${esc(c[0])}</p><span class="stamp">Verified</span><div class="cert-sig"><span>District Rotaract Representative</span><span>District Rotaract Secretary</span></div></div></div><p class="note">Generated automatically from attendance and project logs. Sample only.</p>`, { wide: true });
+      U.sheet(`<div class="cert"><div class="cert-in">${U.gear()}<small>Rotaract District 3233</small><h2>Certificate of ${c[1].startsWith('Participation') ? 'participation' : 'service'}</h2><p>Presented to</p><b class="cert-name">${esc(U.passPerson().name)}</b><p>${esc(c[1])}, ${esc(c[0])}</p><span class="stamp">Verified</span><div class="cert-sig"><span>District Rotaract Representative</span><span>District Rotaract Secretary</span></div></div></div><p class="note">Generated automatically from attendance and project logs. Sample only.</p>`, { wide: true });
     },
 
     /* visits */
@@ -207,8 +213,11 @@
     log(f, e) {
       const name = $('#lpName').value.trim();
       if (!name) { $('#lpName').focus(); U.toast('Give the project a name first', 'info'); return; }
+      if (U.LF.joint && !U.LF.jointClubs.length) { $('#lpClub').focus(); U.toast('Pick the club you ran it with', 'info'); return; }
+      if (U.LF.editing) U.LF.text = ($('#lpText').value || '').trim() || null;
       const k = cos().id + '|4';
-      P.projects[k] = (P.projects[k] || []).concat([{ id: 'n' + Date.now(), name, avenue: U.LF.av, focus: U.LF.focus.slice(), day: Number(($('#lpDate').value || '2026-11-16').slice(8)), volunteers: U.LF.vol, hours: U.LF.hrs, manHours: U.LF.vol * U.LF.hrs, beneficiaries: U.LF.ben, joint: U.LF.joint }]);
+      P.projects[k] = (P.projects[k] || []).concat([{ id: 'n' + Date.now(), name, avenue: U.LF.av, focus: U.LF.focus.slice(), day: Number(($('#lpDate').value || '2026-11-16').slice(8)), volunteers: U.LF.vol, hours: U.LF.hrs, manHours: U.LF.vol * U.LF.hrs, beneficiaries: U.LF.ben, joint: U.LF.joint, jointWith: U.LF.jointClubs.map(id => U.club(id).name), text: U.LF.text }]);
+      Object.assign(U.LF, { joint: false, jointClubs: [], text: null, editing: false });
       save(); U.resetScore();
       U.confetti(...centerOf(e.submitter || f));
       U.toast('Project saved to November');
@@ -282,8 +291,10 @@
     'club-g': el => { U.CF.g = Number(el.value); U.CF.page = 1; paintClubRows(); },
     'people-q': el => peopleQ(el.value),
     'move-group': el => { const id = el.dataset.id; P.clubs[id] = Object.assign(P.clubs[id] || {}, { group: Number(el.value) }); save(); rerender(); U.toast('Club moved to Group ' + el.value); },
-    'lp-text': () => { $('#lpPreview').innerHTML = U.logPreview(); },
-    'lp-joint': el => { U.LF.joint = el.checked; $('#lpPreview').innerHTML = U.logPreview(); },
+    'lp-text': () => U.paintPreview(),
+    'lp-joint': el => { U.LF.joint = el.checked; if (!el.checked) U.LF.jointClubs = []; $('#lpJointBox').innerHTML = U.lpJointHTML(); U.paintPreview(); const c = $('#lpClub'); if (c) c.focus(); },
+    'lp-club': el => { const c = U.activeClubs().find(x => x.name.toLowerCase() === el.value.trim().toLowerCase() && x.id !== cos().id); if (!c || U.LF.jointClubs.includes(c.id)) return; U.LF.jointClubs.push(c.id); $('#lpJointBox').innerHTML = U.lpJointHTML(); U.paintPreview(); const n = $('#lpClub'); if (n) n.focus(); },
+    'lp-edit': el => { U.LF.text = el.value; },
     'lp-photos': el => { U.LF.photos = el.files.length; $('#photoLbl').textContent = el.files.length + ' photos added'; },
     task: el => { P.tasks[el.dataset.k] = el.checked; save(); if (el.checked) U.confetti(...centerOf(el)); rerender(); },
     weight: el => { P.weights = Object.assign({}, P.weights || { reports: 30, projects: 25, hours: 15, events: 15, fees: 10, inits: 5 }, { [el.dataset.k]: Number(el.value) }); save(); $('#wo-' + el.dataset.k).textContent = el.value; $('#scoreList').innerHTML = U.scoreList(); }
@@ -308,7 +319,7 @@
     }
   });
   document.addEventListener('change', e => { const el = e.target.closest('[data-on]'); if (el && I[el.dataset.on] && el.type !== 'search' && el.type !== 'text') I[el.dataset.on](el, e); if (el && el.dataset.act === 'mod') A.mod(el); });
-  document.addEventListener('input', e => { const el = e.target.closest('[data-on]'); if (el && I[el.dataset.on] && (el.type === 'search' || el.type === 'text' || el.type === 'range' || !el.type)) I[el.dataset.on](el, e); });
+  document.addEventListener('input', e => { const el = e.target.closest('[data-on]'); if (el && I[el.dataset.on] && (el.type === 'search' || el.type === 'text' || el.type === 'textarea' || el.type === 'range' || !el.type)) I[el.dataset.on](el, e); });
   document.addEventListener('submit', e => { const f = e.target.closest('[data-form]'); if (!f) return; e.preventDefault(); F[f.dataset.form] && F[f.dataset.form](f, e); });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !$('#sheet').hidden) U.closeSheet();
@@ -318,11 +329,20 @@
   /* ---------- loader: sparks gather into the gear, the gear rises over Chennai ---------- */
   const loader = done => window.MO.loader(done);
 
+  /* Tables become stacked cards on phones: each cell carries its column name, and the CSS shows it. */
+  const labelTables = () => $$('table.tbl').forEach(t => {
+    const hs = Array.from(t.querySelectorAll('thead th')).map(h => (h.querySelector('.sr') ? '' : h.textContent.trim()));
+    t.querySelectorAll('tbody tr').forEach(r => Array.from(r.children).forEach((td, i) => { if (td.tagName === 'TD' && hs[i] != null && td.dataset.l !== hs[i]) td.dataset.l = hs[i]; }));
+  });
+  let lt = 0;
+  new MutationObserver(() => { cancelAnimationFrame(lt); lt = requestAnimationFrame(labelTables); }).observe(document.body, { childList: true, subtree: true });
+
   /* ---------- boot ---------- */
   document.documentElement.dataset.season = P.season || 'icon';
   const paintMotion = () => { document.documentElement.dataset.motion = P.motion; const b = $('#motionBtn'); if (b) { b.setAttribute('aria-pressed', P.motion === 'on'); b.title = P.motion === 'on' ? 'Animations on' : 'Animations off'; } };
   paintMotion();
   U.applyTheme();
+  $('#passBtn').addEventListener('click', () => A['pass-open']());
   $('#themeBtn').addEventListener('click', () => A.colours());
   $('#motionBtn').addEventListener('click', () => { P.motion = P.motion === 'on' ? 'off' : 'on'; save(); paintMotion(); U.toast(P.motion === 'on' ? 'Animations on' : 'Animations off', 'info'); });
   $('#searchBtn').addEventListener('click', () => window.MO.openSearch());
@@ -335,11 +355,12 @@
   const qs = new URLSearchParams(location.search);
   if (qs.get('role') && U.ROLES[qs.get('role')]) P.role = qs.get('role');
   if (qs.get('role') === 'landing') delete P.role;
+  if (qs.get('group') >= 1 && qs.get('group') <= 7) P.myGroup = Number(qs.get('group'));
   if (qs.get('club') === 'college') P.myClub = U.demoClubs()[1].id; else if (qs.get('club') === 'community') P.myClub = U.demoClubs()[0].id;
   if (['light', 'dark', 'auto'].includes(qs.get('theme'))) P.theme = qs.get('theme');
   if (qs.get('accent')) P.accent = qs.get('accent');
   if (['on', 'off'].includes(qs.get('motion'))) P.motion = qs.get('motion');
-  if (qs.get('role') || qs.get('club') || qs.get('theme') || qs.get('accent') || qs.get('motion')) { save(); U.applyTheme(); }
+  if (qs.get('role') || qs.get('club') || qs.get('group') || qs.get('theme') || qs.get('accent') || qs.get('motion')) { save(); U.applyTheme(); }
   try { sessionStorage.setItem('icon-seen', qs.has('skip') ? '1' : sessionStorage.getItem('icon-seen') || ''); } catch (e) { /* ignore */ }
   const h = (location.hash || '').slice(1);
   const m = h.match(/^([a-z]+)(?:-(.+))?$/);

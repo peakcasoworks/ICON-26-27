@@ -28,7 +28,7 @@
   U.view('event', arg => {
     const e = D.EVENTS.find(x => x.id === arg) || D.EVENTS[6];
     const rl = U.role();
-    const isClub = ['pres', 'sec', 'trs', 'vp', 'jsec', 'sgt'].includes(rl);
+    const isClub = ['pres', 'sec', 'trs', 'vp', 'jsec'].includes(rl);
     const mine = U.myClub(), seats = e.quota ? U.seatsOf(e, mine) : 0;
     const site = (P.site && P.site[e.id]) || e.site;
     const done = e.status === 'Done';
@@ -53,7 +53,9 @@
           : isClub ? `<div class="card-h"><h2>For ${esc(mine.name)}</h2></div><p class="note">${e.quota ? `Your group lead gave your club ${seats} seat${seats === 1 ? '' : 's'}.` : 'Every club is invited.'} ${e.fee ? `${inr(e.fee * (e.quota ? seats : 1))} is in your club wallet. Pay it with your other dues in one go.` : ''}</p>${['pres', 'sec', 'jsec'].includes(rl) ? `<button class="btn ink" data-act="confirm-seats" data-id="${e.id}">${ic('check')}Confirm our seats</button>` : ''}`
           : `<div class="card-h"><h2>Seats</h2>${e.quota && U.can.seats() ? `<button class="btn sm ink" data-go="seats" data-arg="${e.id}">Assign seats</button>` : ''}</div>${e.seats ? `<div class="prog"><span class="bt"><i style="--w:${(e.filled / e.seats).toFixed(2)}"></i></span><span class="fig">${e.filled} of ${e.seats}</span></div>` : ''}<p class="note">${e.quota ? 'The district gives each group a pool of seats. The GRR or GRS spreads it over the clubs, and the fee lands in each club wallet.' : 'Clubs confirm their seats here. Fees post to each club wallet automatically.'}</p>`}
       </section>
-    </div>`;
+    </div>
+    ${U.regSummary ? U.regSummary(e) : ''}
+    ${U.attCard ? U.attCard(e) : ''}`;
   });
 
   /* ---------- chair workspace ---------- */
@@ -149,6 +151,7 @@
     const tw = Object.values(w).reduce((a, b) => a + b, 0) || 1;
     return rs.map(r => ({ c: r.c, s: Math.round(Object.keys(W0).reduce((a, k) => a + (r[k] / max[k]) * w[k], 0) / tw * 100) })).sort((a, b) => b.s - a.s);
   }
+  U.scoreRank = ranked;
   U.scoreList = () => {
     const rk = ranked();
     const top = t => rk.filter(x => x.c.type === t).slice(0, 5);
