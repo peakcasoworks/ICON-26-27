@@ -404,16 +404,19 @@ Here are the member details:
     st.textContent = `html:root[data-accent]{${lt}}@media (prefers-color-scheme:dark){html:root[data-accent]:not([data-theme="light"]){${dk}}}html:root[data-accent][data-theme="dark"]{${dk}}`;
     root.setAttribute('data-accent', a.id);
   };
+  // The accent colour is the district's look: only the DRR and DRS set it, and it shows for everyone. Light or dark is each person's own.
+  const canAccent = () => ['drr', 'drs'].includes(U.role());
   A.colours = () => {
     const seg = (v, l) => `<button type="button" class="${P.theme === v ? 'on' : ''}" role="radio" aria-checked="${P.theme === v}" data-act="theme-set" data-v="${v}">${l}</button>`;
-    U.sheet(`<h2 class="sh-h">Colours</h2><p class="note">Pick the look you like. It is saved in this browser and applies to every screen, the start page too.</p>
-      <h3 class="sub-h">Accent colour</h3>
-      <div class="acc-grid" role="radiogroup" aria-label="Accent colour">${ACCENTS.map(a => `<button type="button" class="acc${P.accent === a.id ? ' on' : ''}" role="radio" aria-checked="${P.accent === a.id}" style="--g:oklch(${a.L}% ${a.c} ${a.h})" data-act="accent-set" data-v="${a.id}"><i></i><span>${esc(a.name)}</span></button>`).join('')}</div>
+    const accent = canAccent() ? `<h3 class="sub-h">District accent colour</h3><p class="note">You set this for the whole district. Everyone sees it, on every screen and on the start page.</p>
+      <div class="acc-grid" role="radiogroup" aria-label="District accent colour">${ACCENTS.map(a => `<button type="button" class="acc${P.accent === a.id ? ' on' : ''}" role="radio" aria-checked="${P.accent === a.id}" style="--g:oklch(${a.L}% ${a.c} ${a.h})" data-act="accent-set" data-v="${a.id}"><i></i><span>${esc(a.name)}</span></button>`).join('')}</div>` : '';
+    U.sheet(`<h2 class="sh-h">Colours</h2><p class="note">${canAccent() ? 'Pick the district\'s accent colour, and your own light or dark.' : 'Pick light or dark for yourself. The accent colour is set by the DRR or the DRS.'}</p>
+      ${accent}
       <h3 class="sub-h">Light or dark</h3>
       <div class="seg" role="radiogroup" aria-label="Theme">${seg('auto', 'Match my device')}${seg('light', 'Light')}${seg('dark', 'Dark')}</div>
-      <p class="note">The group colours and the colour of each initiative are set separately, on the Season page and in each initiative.</p>`);
+      <p class="note">${canAccent() ? 'The group colours and the colour of each initiative are set separately, on the Season page and in each initiative.' : 'This is saved in this browser and is only for you.'}</p>`);
   };
-  A['accent-set'] = el => { P.accent = el.dataset.v; save(); U.applyTheme(); A.colours(); };
+  A['accent-set'] = el => { if (!canAccent()) return; P.accent = el.dataset.v; save(); U.applyTheme(); A.colours(); };
   A['theme-set'] = el => { P.theme = el.dataset.v; save(); U.applyTheme(); A.colours(); };
 
   /* =====================================================================

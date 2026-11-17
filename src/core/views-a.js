@@ -268,7 +268,7 @@
         <button class="btn ${P.season === s[0] ? '' : 'ink'}" data-act="season" data-s="${s[0]}" ${P.season === s[0] ? 'disabled' : ''}>${P.season === s[0] ? 'Showing now' : 'Preview this skin'}</button>
       </section>`).join('')}
     </div>
-    <section class="card callout">${ic('palette')}<p><b>Overall colour.</b> Pick an accent colour and light or dark for the whole site. Everyone can do it for themselves, and the DRR sets the season's default.</p><button class="btn" data-act="colours">Choose colours</button></section>
+    <section class="card callout">${ic('palette')}<p><b>District accent colour.</b> The DRR and the DRS pick the accent colour everyone sees. Each person still chooses light or dark for themselves.</p><button class="btn" data-act="colours">Choose colours</button></section>
     <section class="card">
       <div class="card-h"><h2>Handover to the next DRR</h2></div>
       <ol class="timeline">
