@@ -21,9 +21,11 @@
       const clubs = U.demoClubs();
       U.sheet(`<h2 class="sh-h">Switch role</h2><p class="note">Same demo, different seat. Each login sees only what its job needs: a club sees its own club, a group lead sees the group, the district sees everything.</p>
         <fieldset class="field"><legend>Club for the club roles</legend><div class="chips" role="radiogroup">${clubs.map(c => `<button type="button" class="chip${U.myClub().id === c.id ? ' on' : ''}" role="radio" aria-checked="${U.myClub().id === c.id}" data-act="demo-club" data-id="${c.id}">${esc(c.name)}<small class="chip-tag">${c.type.toLowerCase()}</small></button>`).join('')}</div></fieldset>
+        <fieldset class="field"><legend>Group for GRR and GRS</legend><div class="chips" role="radiogroup">${D.GROUPS.map(g => `<button type="button" class="chip${U.MY_GROUP === g.id ? ' on' : ''}" role="radio" aria-checked="${U.MY_GROUP === g.id}" data-act="demo-group" data-g="${g.id}">Group ${g.id}</button>`).join('')}</div></fieldset>
         <div class="role-list">${Object.keys(U.ROLES).map(id => { const r = U.roleInfo(id); return `<button class="role-card${P.role === id ? ' on' : ''}" data-act="pick-role" data-role="${id}"><span class="avatar">${ic(r.icon)}</span><span class="rc-t"><b>${esc(r.label)}</b><small>${esc(r.full)}</small></span></button>`; }).join('')}</div>
         <button class="btn full" data-act="landing">Back to the start page</button>`);
     },
+    'demo-group'(el) { P.myGroup = Number(el.dataset.g); save(); if (U.cur().view === 'roles') rerender(); else { stack.length = 0; U.closeSheet(); U.go('home'); } U.toast('GRR and GRS roles now belong to Group ' + P.myGroup); },
     'demo-club'(el) { P.myClub = Number(el.dataset.id); save(); stack.length = 0; U.closeSheet(); U.go('home'); U.toast('Club roles now show ' + U.myClub().name + ', a ' + U.myClub().type.toLowerCase() + ' club'); },
     landing() { U.closeSheet(); U.go('roles'); },
     'to-roles'() { const r = $('#roles'); if (r) window.scrollTo({ top: r.getBoundingClientRect().top + window.scrollY - 8, behavior: U.calm() ? 'auto' : 'smooth' }); },
@@ -344,11 +346,12 @@
   const qs = new URLSearchParams(location.search);
   if (qs.get('role') && U.ROLES[qs.get('role')]) P.role = qs.get('role');
   if (qs.get('role') === 'landing') delete P.role;
+  if (qs.get('group') >= 1 && qs.get('group') <= 7) P.myGroup = Number(qs.get('group'));
   if (qs.get('club') === 'college') P.myClub = U.demoClubs()[1].id; else if (qs.get('club') === 'community') P.myClub = U.demoClubs()[0].id;
   if (['light', 'dark', 'auto'].includes(qs.get('theme'))) P.theme = qs.get('theme');
   if (qs.get('accent')) P.accent = qs.get('accent');
   if (['on', 'off'].includes(qs.get('motion'))) P.motion = qs.get('motion');
-  if (qs.get('role') || qs.get('club') || qs.get('theme') || qs.get('accent') || qs.get('motion')) { save(); U.applyTheme(); }
+  if (qs.get('role') || qs.get('club') || qs.get('group') || qs.get('theme') || qs.get('accent') || qs.get('motion')) { save(); U.applyTheme(); }
   try { sessionStorage.setItem('icon-seen', qs.has('skip') ? '1' : sessionStorage.getItem('icon-seen') || ''); } catch (e) { /* ignore */ }
   const h = (location.hash || '').slice(1);
   const m = h.match(/^([a-z]+)(?:-(.+))?$/);

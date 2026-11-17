@@ -24,8 +24,8 @@
   const ORDER = [['District', ['drr', 'drs', 'dt', 'gco']], ['Group and portfolio', ['grr', 'grs', 'dir', 'chair']], ['Club', ['pres', 'vp', 'sec', 'jsec', 'trs', 'sgt', 'mem']]];
   const ROLE_NOTE = {
     drr: 'Command centre, approvals, season setup', drs: 'Review every monthly report', dt: 'Dues, event fees, payment checks',
-    grr: 'Chase and check your group\'s clubs', dir: 'Run a district initiative', chair: 'Committees and tasks for RYLA',
-    gco: 'Every GRR and GRS, club moves, seats', grs: 'Check your group\'s reports with the GRR',
+    grr: 'Chase and check the clubs of your own group', dir: 'Run a district initiative', chair: 'Committees and tasks for RYLA',
+    gco: 'Every GRR and GRS, club moves, seats', grs: 'Check your own group\'s reports with the GRR',
     pres: 'Send reports, add members, book the DRR visit', vp: 'See reports, roster and events', sec: 'Log projects, send the report, keep the roster', jsec: 'Log projects and help send the report',
     trs: 'Pay dues and event fees in one go', sgt: 'Scan members in at events', mem: 'Pass, points, certificates'
   };
@@ -41,10 +41,11 @@
     </section>
     ${U.landingSections()}
     <section class="roles-wrap" id="roles">
-      <div class="role-intro"><span class="eyebrow">Sign in</span><h2 class="sec-h">Choose your role</h2><p class="lede">In the real site you sign in with your own login and see only your seat. In this demo, pick a seat to try it.</p></div>
+      <div class="role-intro"><span class="eyebrow">Sign in</span><h2 class="sec-h">Choose your role</h2><p class="lede">In the real site you sign in with your own login and see only your seat: a GRR or GRS lands in their own group, a club officer in their own club. In this demo, pick a seat to try it.</p>
+        <div class="demo-pick"><b>Demo only</b><span>A GRR or GRS belongs to one group. Which group should they be in?</span><div class="chips" role="radiogroup" aria-label="Group">${D.GROUPS.map(g => `<button type="button" class="chip${U.MY_GROUP === g.id ? ' on' : ''}" role="radio" aria-checked="${U.MY_GROUP === g.id}" data-act="demo-group" data-g="${g.id}">Group ${g.id}</button>`).join('')}</div></div></div>
       ${ORDER.map(([g, ids]) => `<div class="role-group"><h2>${g}</h2><div class="role-grid">${ids.map(id => {
         const r = U.roleInfo(id);
-        return `<button class="role-card" data-act="pick-role" data-role="${id}"><span class="avatar">${ic(r.icon)}</span><span class="rc-t"><b>${esc(r.label)}</b><small>${esc(ROLE_NOTE[id])}</small></span>${ic('right', 'rc-go')}</button>`;
+        return `<button class="role-card" data-act="pick-role" data-role="${id}"><span class="avatar">${ic(r.icon)}</span><span class="rc-t"><b>${esc(U.ROLES[id].label)}</b><small>${esc(ROLE_NOTE[id])}</small></span>${ic('right', 'rc-go')}</button>`;
       }).join('')}</div></div>`).join('')}
     </section>`);
 
@@ -55,7 +56,7 @@
     if (r === 'drs') return U.views_reports(true);
     if (r === 'dt') return U.views_finance();
     if (r === 'gco') return U.views_gco();
-    if (r === 'grr' || r === 'grs') return groupHome(6, true);
+    if (r === 'grr' || r === 'grs') return groupHome(U.MY_GROUP, true);
     if (r === 'dir') return U.views_initiative('blood', true);
     if (r === 'chair') return U.views_workspace('ryla');
     if (['pres', 'sec', 'vp', 'jsec', 'sgt'].includes(r)) return clubHome();

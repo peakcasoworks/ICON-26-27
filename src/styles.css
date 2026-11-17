@@ -836,3 +836,5 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .mom-l { margin: 4px 0 12px; padding-left: 22px; line-height: 1.6; color: var(--ink-2); }
 .mom-doc .stats { margin-bottom: 8px; }
 @media print { .side, .top, .tabbar, .demo-bar, .ph-act, #sheet, .toast, #toast { display: none !important; } .main { margin: 0 !important; } }
+.demo-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 14px; padding: 10px 14px; border: 1px dashed var(--rule-2); border-radius: var(--r-ctl); font-size: 0.88rem; color: var(--ink-2); }
+.demo-pick > b { padding: 2px 8px; border-radius: var(--r-pill); background: var(--gold-soft); color: var(--gold-ink); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }

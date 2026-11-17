@@ -67,8 +67,8 @@
     drs: { label: 'DRS', full: 'District Rotaract Secretary', who: 'District', icon: 'doc', nav: ['home', 'clubs', 'groups', 'people', 'drc', 'mom', 'events', 'visits'] },
     dt: { label: 'District Treasurer', full: 'District Treasurer', who: 'District', icon: 'rupee', nav: ['home', 'clubs', 'events'] },
     gco: { label: 'Group Coordinator', full: 'Group Coordinator, all seven groups', who: 'All groups', icon: 'layers', nav: ['home', 'groups', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people', 'initiatives'] },
-    grr: { label: 'GRR, Group 6', full: 'Group Rotaract Representative, Group 6 South', who: 'Group 6', icon: 'layers', nav: ['home', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people', 'initiatives'] },
-    grs: { label: 'GRS, Group 6', full: 'Group Rotaract Secretary, Group 6 South', who: 'Group 6', icon: 'doc', nav: ['home', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people'] },
+    grr: { label: 'GRR', full: 'Group Rotaract Representative', who: 'Your group', icon: 'layers', nav: ['home', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people', 'initiatives'] },
+    grs: { label: 'GRS', full: 'Group Rotaract Secretary', who: 'Your group', icon: 'doc', nav: ['home', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people'] },
     dir: { label: 'Director', full: 'Chairperson, Blood Donation', who: 'Every drop counts', icon: 'spark', nav: ['home', 'initiatives', 'events', 'clubs'] },
     chair: { label: 'RYLA Chair', full: 'RYLA Chairman', who: 'RYLA 2026', icon: 'flag', nav: ['home', 'events', 'clubs'] },
     pres: { label: 'Club President', full: 'President, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'user', nav: ['home', 'monthly', 'wallet', 'drc', 'mom', 'visits', 'events', 'initiatives', 'people', 'pass'] },
@@ -85,22 +85,28 @@
     people: ['People', 'users'], visits: ['DRR visits', 'calendar'], season: ['Season', 'sun'], log: ['Log project', 'plus'],
     monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id'], seats: ['Seat allotment', 'id'], drc: ['DRC bookings', 'calendar'], mom: ['Minutes', 'doc']
   };
-  const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'Group 6', grs: 'Group 6', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', sgt: 'Club home', trs: 'Club wallet', mem: 'My pass' };
+  const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'My group', grs: 'My group', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', sgt: 'Club home', trs: 'Club wallet', mem: 'My pass' };
   const role = () => P.role;
 
   /* ---------- who sees what ---------- */
   // district: every club and person. group: the clubs and people of one group. portfolio: clubs and events, no member lists.
   // club: that club only. Search, the people list, the clubs list and every club page follow this one rule.
   const SCOPE = { drr: 'district', drs: 'district', dt: 'district', gco: 'district', grr: 'group', grs: 'group', dir: 'portfolio', chair: 'portfolio', pres: 'club', vp: 'club', sec: 'club', jsec: 'club', trs: 'club', sgt: 'club', mem: 'club' };
-  const MY_GROUP = 6;
+  // A GRR or GRS belongs to one group, and that comes from their login. The demo lets you pick which one to try.
+  const myGroup = () => P.myGroup || 6;
   const level = () => SCOPE[P.role] || 'none';
   const COLLEGE_DEMO = D.clubs.find(c => c.type === 'College' && c.name !== 'Senthamizh University' && c.state === 'Active');
   const demoClubs = () => [D.cosmos, COLLEGE_DEMO];
   const myClub = () => demoClubs().find(c => c.id === P.myClub) || D.cosmos;
-  const canSeeClub = c => { const l = level(); return l === 'district' || l === 'portfolio' || (l === 'group' ? groupOf(c) === MY_GROUP : l === 'club' && c.id === myClub().id); };
-  const canSeePerson = m => { const l = level(); return l === 'district' || (l === 'group' ? groupOf(m.club) === MY_GROUP : l === 'club' && m.club.id === myClub().id); };
+  const canSeeClub = c => { const l = level(); return l === 'district' || l === 'portfolio' || (l === 'group' ? groupOf(c) === myGroup() : l === 'club' && c.id === myClub().id); };
+  const canSeePerson = m => { const l = level(); return l === 'district' || (l === 'group' ? groupOf(m.club) === myGroup() : l === 'club' && m.club.id === myClub().id); };
   const visibleClubs = () => clubs().filter(canSeeClub);
-  const roleInfo = id => { const r = ROLES[id] || ROLES.drr, n = myClub().name; return Object.assign({}, r, { who: r.who.replace('Madras Cosmos', n), full: r.full.replace('Madras Cosmos', n) }); };
+  const roleInfo = id => {
+    const r = ROLES[id] || ROLES.drr, n = myClub().name, g = D.GROUPS[myGroup() - 1];
+    const o = Object.assign({}, r, { who: r.who.replace('Madras Cosmos', n), full: r.full.replace('Madras Cosmos', n) });
+    if (SCOPE[id] === 'group') Object.assign(o, { label: `${r.label}, Group ${g.id}`, full: `${r.full}, Group ${g.id} ${g.area}`, who: `Group ${g.id}` });
+    return o;
+  };
   const R = () => roleInfo(P.role);
   const can = {
     sendReport: () => ['pres', 'sec', 'jsec'].includes(P.role),
@@ -174,7 +180,7 @@
       drr: [['16 clubs have not started their October report.', 'reports'], ['Chennai Kolathur asked to become Inactive.', 'clubs'], ['2 new clubs are waiting for charter approval.', 'clubs']],
       drs: [['9 October reports are waiting for you.', 'home'], ['Madras Cosmos sent its October report to GRS.', 'reports']],
       dt: [['14 payments are waiting to be checked.', 'home'], ['RYLA seat fees close on 30 Nov.', 'events']],
-      grr: [['3 clubs in Group 6 have not started October.', 'home'], ['Madras Cosmos report is waiting for your check.', 'reports']],
+      grr: [[`3 clubs in Group ${myGroup()} have not started October.`, 'home'], ['Madras Cosmos report is waiting for your check.', 'reports']],
       dir: [['Chennai Velachery logged 42 units.', 'home'], ['Every drop counts crossed 1,400 units.', 'home']],
       chair: [['Backstage committee has 3 open tasks.', 'home'], ['117 of 180 RYLA seats are filled.', 'home']],
       pres: [['Book your club\'s slot for the DRC on 7 Dec.', 'drc'], ['October report is late. You or your secretary can send it.', 'monthly'], ['Book your DRR official visit before 20 Dec.', 'visits'], ['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'wallet']],
@@ -460,5 +466,5 @@
   const skeletonRows = (n, cols) => Array.from({ length: n }, () => `<tr class="sk-row">${Array.from({ length: cols }, () => '<td><span class="sk"></span></td>').join('')}</tr>`).join('');
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-  window.UI = { gearPath, P, save, blank, KEY, calm, OS_CALM, SCOPE, level, myClub, demoClubs, canSeeClub, canSeePerson, visibleClubs, roleInfo, can, download, seatEvents, seatsOf, poolOf, spent, MY_GROUP, get RM() { return calm(); }, $, $$, esc, num, inr, ic, pct, clubs, club, stateOf, groupOf, activeClubs, report, setReport, projects, wallet, gcolor, RS, PAY, pill, rpill, ppill, gpill, ROLES, NAV, HOME_NAME, role, R, view, go, render, cur: () => cur, setCur: c => { cur = c; }, notifs, sheet, closeSheet, toast, confetti, after, gear, skyline, scene, auto, coffee, mapSVG, ring, spark, bar, tracker, qr, pager, skeletonRows, debounce };
+  window.UI = { gearPath, P, save, blank, KEY, calm, OS_CALM, SCOPE, level, myClub, get MY_GROUP() { return myGroup(); }, demoClubs, canSeeClub, canSeePerson, visibleClubs, roleInfo, can, download, seatEvents, seatsOf, poolOf, spent, get RM() { return calm(); }, $, $$, esc, num, inr, ic, pct, clubs, club, stateOf, groupOf, activeClubs, report, setReport, projects, wallet, gcolor, RS, PAY, pill, rpill, ppill, gpill, ROLES, NAV, HOME_NAME, role, R, view, go, render, cur: () => cur, setCur: c => { cur = c; }, notifs, sheet, closeSheet, toast, confetti, after, gear, skyline, scene, auto, coffee, mapSVG, ring, spark, bar, tracker, qr, pager, skeletonRows, debounce };
 })();
