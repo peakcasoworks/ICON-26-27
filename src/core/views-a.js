@@ -21,7 +21,7 @@
   }).join('')}</div>`;
 
   /* ---------- role picker ---------- */
-  const ORDER = [['District', ['drr', 'drs', 'dt', 'gco']], ['Group and portfolio', ['grr', 'grs', 'dir', 'chair', 'dsgt']], ['Club', ['pres', 'vp', 'sec', 'jsec', 'trs', 'sgt', 'mem']]];
+  const ORDER = [['District', ['drr', 'drs', 'dt', 'gco', 'dsgt']], ['Group and portfolio', ['grr', 'grs', 'dir', 'chair']], ['Club', ['pres', 'vp', 'sec', 'jsec', 'trs', 'sgt', 'mem']]];
   const ROLE_NOTE = {
     drr: 'Command centre, approvals, season setup', drs: 'Review every monthly report', dt: 'Dues, event fees, payment checks',
     grr: 'Chase and check the clubs of your own group', dir: 'Run a district initiative', chair: 'Committees and tasks for RYLA',
