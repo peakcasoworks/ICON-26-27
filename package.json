@@ -1,0 +1,18 @@
+{
+  "name": "icon-3233",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "ICON, the Rotaract District 3233 platform: clickable concept demo with sample data and no backend.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --open"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  },
+  "dependencies": {
+    "gsap": "^3.13.0"
+  }
+}

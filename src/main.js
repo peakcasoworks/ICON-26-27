@@ -1,0 +1,9 @@
+import './styles.css';
+import './core/data.js';
+import './core/ui.js';
+import './setup.js';
+import './core/views-a.js';
+import './core/views-b.js';
+import './core/views-c.js';
+import './core/views-d.js';
+import './core/app.js';
