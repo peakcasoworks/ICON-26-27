@@ -3,7 +3,7 @@
   const KEY = 'icon3233-demo-v1';
   let P = {};
   try { P = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { P = {}; }
-  const blank = () => ({ reports: {}, projects: {}, pay: {}, clubs: {}, newClubs: [], desig: [], inits: [], visits: {}, tasks: {}, gcol: {}, weights: null, nudged: {}, extraNotifs: [] });
+  const blank = () => ({ reports: {}, projects: {}, pay: {}, clubs: {}, newClubs: [], desig: [], inits: [], visits: {}, tasks: {}, gcol: {}, weights: null, nudged: {}, extraNotifs: [], alloc: {}, members: [], posts: {}, theme: 'auto', accent: 'default' });
   P = Object.assign(blank(), P);
   if (!P.motion) P.motion = 'on';
   const OS_CALM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -26,7 +26,9 @@
   const activeClubs = () => clubs().filter(c => stateOf(c) === 'Active');
   const report = (c, mi) => {
     const base = c.isNew ? { status: 'none', late: false } : D.baseReport(c, mi);
-    return Object.assign({}, base, P.reports[c.id + '|' + mi] || {});
+    const r = Object.assign({}, base, P.reports[c.id + '|' + mi] || {});
+    if (r.status === 'president') r.status = 'grs'; // one sign-off is enough now: president or secretary sends it straight to the GRS
+    return r;
   };
   const setReport = (c, mi, patch, note) => {
     const k = c.id + '|' + mi;
@@ -36,11 +38,21 @@
     save();
   };
   const projects = (c, mi) => (c.isNew ? [] : D.projectsFor(c, mi)).concat(P.projects[c.id + '|' + mi] || []);
-  const wallet = c => D.walletFor(c).map(it => Object.assign({}, it, P.pay[it.id] || {}));
+  /* Seats: the district allots a pool to each group, the GRR or GRS spreads it over the group's clubs. */
+  const seatEvents = () => D.EVENTS.filter(e => e.quota && e.status !== 'Done');
+  const seatsOf = (e, c) => { const a = P.alloc[e.id]; return a && a.club[c.id] != null ? a.club[c.id] : e.quota || 0; };
+  const poolOf = (e, g) => { const a = P.alloc[e.id]; return a && a.pool[g] != null ? a.pool[g] : activeClubs().filter(c => groupOf(c) === g).reduce((n, c) => n + (e.quota || 0), 0); };
+  const spent = (e, g) => activeClubs().filter(c => groupOf(c) === g).reduce((n, c) => n + seatsOf(e, c), 0);
+  const FEE_OF = { asm: 'assembly', ryla: 'ryla', conf: 'conf' };
+  const wallet = c => D.walletFor(c).map(it => {
+    const ev = FEE_OF[it.id.split('-').pop()] && D.EVENTS.find(e => e.id === FEE_OF[it.id.split('-').pop()]);
+    const base = ev && ev.fee ? Object.assign({}, it, { amount: seatsOf(ev, c) * ev.fee, detail: seatsOf(ev, c) + (seatsOf(ev, c) === 1 ? ' seat at ' : ' seats at ') + inr(ev.fee) }) : it;
+    return Object.assign({}, base, P.pay[it.id] || {});
+  });
   const gcolor = g => 'var(--sw' + (P.gcol[g] || g) + ')';
 
   const RS = {
-    none: ['Not started', 'bad'], draft: ['Draft', 'warn'], president: ['Waiting for president', 'warn'],
+    none: ['Not started', 'bad'], draft: ['Draft', 'warn'], president: ['With GRS', 'neutral'],
     grs: ['With GRS', 'neutral'], drs: ['With DRS', 'neutral'], accepted: ['Accepted', 'ok'], returned: ['Returned', 'bad']
   };
   const PAY = { verified: ['Paid', 'ok'], pending: ['Checking payment', 'neutral'], due: ['Due', 'warn'], overdue: ['Overdue', 'bad'] };
@@ -51,26 +63,62 @@
 
   /* ---------- roles ---------- */
   const ROLES = {
-    drr: { label: 'DRR', full: 'District Rotaract Representative', who: 'District', icon: 'gear', nav: ['home', 'reports', 'clubs', 'events', 'finance', 'groups', 'initiatives', 'awards', 'designations', 'people', 'visits', 'season'] },
+    drr: { label: 'DRR', full: 'District Rotaract Representative', who: 'District', icon: 'gear', nav: ['home', 'reports', 'clubs', 'events', 'finance', 'groups', 'seats', 'initiatives', 'awards', 'designations', 'people', 'visits', 'season'] },
     drs: { label: 'DRS', full: 'District Rotaract Secretary', who: 'District', icon: 'doc', nav: ['home', 'clubs', 'groups', 'people', 'events', 'visits'] },
     dt: { label: 'District Treasurer', full: 'District Treasurer', who: 'District', icon: 'rupee', nav: ['home', 'clubs', 'events'] },
-    grr: { label: 'GRR, Group 6', full: 'Group Rotaract Representative, Group 6 South', who: 'Group 6', icon: 'layers', nav: ['home', 'reports', 'clubs', 'events', 'initiatives'] },
+    gco: { label: 'Group Coordinator', full: 'Group Coordinator, all seven groups', who: 'All groups', icon: 'layers', nav: ['home', 'groups', 'reports', 'clubs', 'seats', 'events', 'people', 'initiatives'] },
+    grr: { label: 'GRR, Group 6', full: 'Group Rotaract Representative, Group 6 South', who: 'Group 6', icon: 'layers', nav: ['home', 'reports', 'clubs', 'seats', 'events', 'people', 'initiatives'] },
+    grs: { label: 'GRS, Group 6', full: 'Group Rotaract Secretary, Group 6 South', who: 'Group 6', icon: 'doc', nav: ['home', 'reports', 'clubs', 'seats', 'events', 'people'] },
     dir: { label: 'Director', full: 'Chairperson, Blood Donation', who: 'Every drop counts', icon: 'spark', nav: ['home', 'initiatives', 'events', 'clubs'] },
     chair: { label: 'RYLA Chair', full: 'RYLA Chairman', who: 'RYLA 2026', icon: 'flag', nav: ['home', 'events', 'clubs'] },
     pres: { label: 'Club President', full: 'President, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'user', nav: ['home', 'monthly', 'wallet', 'visits', 'events', 'initiatives', 'people', 'pass'] },
+    vp: { label: 'Club Vice President', full: 'Vice President, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'user', nav: ['home', 'monthly', 'events', 'initiatives', 'people', 'pass'] },
     sec: { label: 'Club Secretary', full: 'Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'events', 'people', 'pass'] },
-    trs: { label: 'Club Treasurer', full: 'Treasurer, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'rupee', nav: ['home', 'events', 'pass'] },
+    jsec: { label: 'Joint Secretary', full: 'Joint Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'events', 'people', 'pass'] },
+    trs: { label: 'Club Treasurer', full: 'Treasurer, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'rupee', nav: ['home', 'events', 'people', 'pass'] },
+    sgt: { label: 'Sergeant-at-Arms', full: 'Sergeant-at-Arms, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'badge', nav: ['home', 'events', 'people', 'pass'] },
     mem: { label: 'Member', full: 'Member, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'id', nav: ['home', 'events', 'initiatives', 'awards'] }
   };
   const NAV = {
     home: ['Home', 'home'], reports: ['Reports', 'doc'], clubs: ['Clubs', 'building'], groups: ['Groups', 'layers'], events: ['Events', 'flag'],
     finance: ['Finance', 'rupee'], initiatives: ['Initiatives', 'spark'], awards: ['Scorecard', 'trophy'], designations: ['Designations', 'badge'],
     people: ['People', 'users'], visits: ['DRR visits', 'calendar'], season: ['Season', 'sun'], log: ['Log project', 'plus'],
-    monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id']
+    monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id'], seats: ['Seat allotment', 'id']
   };
-  const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', grr: 'Group 6', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', sec: 'Club home', trs: 'Club wallet', mem: 'My pass' };
+  const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'Group 6', grs: 'Group 6', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', sgt: 'Club home', trs: 'Club wallet', mem: 'My pass' };
   const role = () => P.role;
-  const R = () => ROLES[P.role] || ROLES.drr;
+
+  /* ---------- who sees what ---------- */
+  // district: every club and person. group: the clubs and people of one group. portfolio: clubs and events, no member lists.
+  // club: that club only. Search, the people list, the clubs list and every club page follow this one rule.
+  const SCOPE = { drr: 'district', drs: 'district', dt: 'district', gco: 'district', grr: 'group', grs: 'group', dir: 'portfolio', chair: 'portfolio', pres: 'club', vp: 'club', sec: 'club', jsec: 'club', trs: 'club', sgt: 'club', mem: 'club' };
+  const MY_GROUP = 6;
+  const level = () => SCOPE[P.role] || 'none';
+  const COLLEGE_DEMO = D.clubs.find(c => c.type === 'College' && c.name !== 'Senthamizh University' && c.state === 'Active');
+  const demoClubs = () => [D.cosmos, COLLEGE_DEMO];
+  const myClub = () => demoClubs().find(c => c.id === P.myClub) || D.cosmos;
+  const canSeeClub = c => { const l = level(); return l === 'district' || l === 'portfolio' || (l === 'group' ? groupOf(c) === MY_GROUP : l === 'club' && c.id === myClub().id); };
+  const canSeePerson = m => { const l = level(); return l === 'district' || (l === 'group' ? groupOf(m.club) === MY_GROUP : l === 'club' && m.club.id === myClub().id); };
+  const visibleClubs = () => clubs().filter(canSeeClub);
+  const roleInfo = id => { const r = ROLES[id] || ROLES.drr, n = myClub().name; return Object.assign({}, r, { who: r.who.replace('Madras Cosmos', n), full: r.full.replace('Madras Cosmos', n) }); };
+  const R = () => roleInfo(P.role);
+  const can = {
+    sendReport: () => ['pres', 'sec', 'jsec'].includes(P.role),
+    roster: () => ['pres', 'sec'].includes(P.role),
+    pay: () => ['trs', 'pres'].includes(P.role),
+    seats: () => ['drr', 'gco', 'grr', 'grs'].includes(P.role),
+    exportAll: () => ['drr', 'drs', 'gco', 'dt'].includes(P.role)
+  };
+
+  /* ---------- files ---------- */
+  function download(name, rows) {
+    const csv = rows.map(r => r.map(v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  }
 
   /* ---------- router ---------- */
   const views = {};
@@ -123,15 +171,20 @@
   /* ---------- notifications ---------- */
   function notifs() {
     const base = {
-      drr: [['RYLA is 64% ready with 33 days to go. Backstage is behind.', 'event-ryla'], ['16 clubs have not started their October report.', 'reports'], ['Chennai Kolathur asked to become Inactive.', 'clubs'], ['2 new clubs are waiting for charter approval.', 'clubs']],
+      drr: [['16 clubs have not started their October report.', 'reports'], ['Chennai Kolathur asked to become Inactive.', 'clubs'], ['2 new clubs are waiting for charter approval.', 'clubs']],
       drs: [['9 October reports are waiting for you.', 'home'], ['Madras Cosmos sent its October report to GRS.', 'reports']],
       dt: [['14 payments are waiting to be checked.', 'home'], ['RYLA seat fees close on 30 Nov.', 'events']],
       grr: [['3 clubs in Group 6 have not started October.', 'home'], ['Madras Cosmos report is waiting for your check.', 'reports']],
       dir: [['Chennai Velachery logged 42 units.', 'home'], ['Every drop counts crossed 1,400 units.', 'home']],
       chair: [['Backstage committee has 3 open tasks.', 'home'], ['117 of 180 RYLA seats are filled.', 'home']],
-      pres: [['Your October report is waiting for your sign-off.', 'monthly'], ['Book your DRR official visit before 20 Dec.', 'visits'], ['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'wallet']],
-      sec: [['November: 2 projects logged, 3 steps left.', 'monthly'], ['Report for November is due on 5 Dec.', 'monthly']],
+      pres: [['October report is late. You or your secretary can send it.', 'monthly'], ['Book your DRR official visit before 20 Dec.', 'visits'], ['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'wallet']],
+      sec: [['October report is late. You or your president can send it.', 'monthly'], ['November: 2 projects logged, 3 steps left.', 'monthly'], ['Report for November is due on 5 Dec.', 'monthly']],
       trs: [['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'home'], ['Conference delegate fee opens on 1 Dec.', 'home']],
+      gco: [['Group 3 has 2 clubs without a GRS check this week.', 'groups'], ['RYLA seat pools are open for the GRRs to spread.', 'seats']],
+      grs: [['Madras Cosmos report is waiting for your check.', 'reports'], ['RYLA seats for your group are ready to assign.', 'seats']],
+      vp: [['October report is late. The president or secretary can send it.', 'monthly']],
+      jsec: [['November: 2 projects logged, 3 steps left.', 'monthly']],
+      sgt: [['Next event: DRC in December. You scan your club at the door.', 'events']],
       mem: [['You earned 50 points at the Blood Donation Megacamp.', 'home'], ['RYLA registration is open.', 'events']]
     }[P.role] || [];
     return P.extraNotifs.filter(n => n.role === P.role).map(n => ({ t: n.t, go: n.go, unread: true })).concat(base.map((b, i) => ({ t: b[0], go: b[1], unread: i < 2 })));
@@ -218,7 +271,7 @@
   }
 
   /* ---------- drawn components ---------- */
-  // The district gear: 18 teeth around a kolam knot. Drawn for this demo, not the Rotary mark.
+  // Small cog path, used for the auto's wheels. The logo itself is the Rotary wheel (src/wheel.js).
   function gearPath(n = 18, ro = 47, rr = 40, cx = 50, cy = 50) {
     let d = '';
     for (let i = 0; i < n; i++) {
@@ -230,12 +283,10 @@
   }
   const GEAR = gearPath();
   const KOLAM = 'M50 33c9 0 17 8 17 17s-8 17-17 17-17-8-17-17 8-17 17-17zM33 50c0-6 5-11 11-11M67 50c0 6-5 11-11 11M50 33c-6 0-11 5-11 11M50 67c6 0 11-5 11-11';
-  function gear(cls = '') {
-    return `<svg class="gear ${cls}" viewBox="0 0 100 100" aria-hidden="true"><path class="g-teeth" d="${GEAR}"/><circle class="g-ring" cx="50" cy="50" r="31"/><path class="g-kolam" d="${KOLAM}"/><circle class="g-dot" cx="50" cy="50" r="3.2"/><circle class="g-dot" cx="38" cy="38" r="2"/><circle class="g-dot" cx="62" cy="38" r="2"/><circle class="g-dot" cx="38" cy="62" r="2"/><circle class="g-dot" cx="62" cy="62" r="2"/></svg>`;
-  }
+  function gear(cls = '') { return WHEEL.svg(cls); }
 
   // A small yellow auto, side view, with district gears for wheels.
-  const WHEEL = gearPath(10, 6.2, 4.6, 0, 0);
+  const COG = gearPath(10, 6.2, 4.6, 0, 0);
   function auto(cls = '') {
     return `<svg class="auto ${cls}" viewBox="-2 -10 74 56" aria-hidden="true">
       <rect class="a-board" x="24" y="-8" width="22" height="8" rx="1.5"/><text class="a-btxt" x="35" y="-1.6">3233</text>
@@ -244,8 +295,8 @@
       <path class="a-body" d="M5 36V25Q5 20 10 20H55L66 30V36Z"/>
       <path class="a-door" d="M17 21H41V31H17Z"/>
       <path class="a-stripe" d="M5 33H66"/>
-      <g transform="translate(16 37)"><g class="a-wh"><path d="${WHEEL}"/><circle r="2"/></g></g>
-      <g transform="translate(57 37)"><g class="a-wh"><path d="${WHEEL}"/><circle r="2"/></g></g>
+      <g transform="translate(16 37)"><g class="a-wh"><path d="${COG}"/><circle r="2"/></g></g>
+      <g transform="translate(57 37)"><g class="a-wh"><path d="${COG}"/><circle r="2"/></g></g>
     </svg>`;
   }
 
@@ -254,7 +305,7 @@
   // Morning palette in light mode, dusk palette in dark mode.
   let sceneN = 0;
   function scene(cls = '') {
-    const n = ++sceneN;
+    const n = ++sceneN, sunW = WHEEL.paths(600, 168, 58);
     let arches = '', upper = '', lanes = '', ledges = '';
     for (let x = 290; x < 494; x += 22) if (x < 366 || x > 410) arches += `M${x} 247V226q8-11 16 0V247Z`;
     for (let x = 292; x < 494; x += 22) if (x < 366 || x > 410) upper += `M${x} 196h10v12h-10Z`;
@@ -271,7 +322,7 @@
       <g class="stars" data-loop>${[[60, 30], [180, 60], [250, 24], [420, 40], [520, 18], [640, 52], [760, 30], [330, 70]].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="1.4" style="--i:${i}"/>`).join('')}</g>
       <g class="clouds" data-depth="0.18">${[[60, 52, 1, 70], [300, 30, 0.8, 95], [560, 64, 1.15, 80]].map(([x, y, k, d]) => `<g transform="translate(${x} ${y}) scale(${k})"><g class="cloud" style="--t:${d}s"><path d="M0 22q0-13 15-13q5-12 19-8q11-11 24 2q13 0 13 13q0 6-6 6H6q-6 0-6-0z"/></g></g>`).join('')}</g>
       <g class="birds" transform="translate(150 70)"><g class="flock">${[[0, 0], [22, -8], [40, 4], [-18, 10]].map(([x, y], i) => `<path class="bird" style="--i:${i}" d="M${x} ${y}q5-5 10 0q5-5 10 0"/>`).join('')}</g></g>
-      <g class="ly ly-sun" data-depth="0.12"><g class="sun-rise"><g class="sun-spin" data-loop><circle cx="600" cy="168" r="72" class="sun-halo"/><path d="${gearPath(18, 54, 46, 600, 168)}" fill="url(#sunG${n})"/><circle cx="600" cy="168" r="34" class="sun-face"/><path class="sun-kolam" transform="translate(550 118)" d="${KOLAM}"/></g></g></g>
+      <g class="ly ly-sun" data-depth="0.12"><g class="sun-rise"><g class="sun-spin" data-loop><circle cx="600" cy="168" r="72" class="sun-halo"/><path d="${sunW.rim}" fill="url(#sunG${n})" fill-rule="evenodd"/><path d="${sunW.hub}" fill="url(#sunG${n})" fill-rule="evenodd"/><path d="${sunW.spokes}" fill="url(#sunG${n})"/></g></g></g>
       <g class="ly ly-sea" data-depth="0.3"><rect class="sea" x="0" y="226" width="800" height="40"/><g transform="translate(470 238)"><g class="boat" style="--d:0s"><path class="b-hull" d="M0 6h30l-5 5H5z"/><path class="b-sail" d="M14 6V-14L26 4z"/></g></g><g transform="translate(610 244)"><g class="boat" style="--d:-1.4s"><path class="b-hull" d="M0 5h24l-4 4H4z"/><path class="b-sail" d="M11 5V-10L21 3z"/></g></g><g class="shimmer" data-loop><path d="M560 236h40M630 244h24M520 250h30M680 238h30M600 256h36M720 252h22"/></g></g>
       <g class="ly ly-far" data-depth="0.4">
         <g class="via"><rect x="0" y="205" width="800" height="5"/><rect x="10" y="210" width="5" height="18"/><rect x="74" y="210" width="5" height="18"/><rect x="138" y="210" width="5" height="18"/><rect x="202" y="210" width="5" height="18"/><rect x="266" y="210" width="5" height="18"/><rect x="330" y="210" width="5" height="18"/><rect x="394" y="210" width="5" height="18"/><rect x="458" y="210" width="5" height="18"/><rect x="522" y="210" width="5" height="18"/><rect x="586" y="210" width="5" height="18"/><rect x="650" y="210" width="5" height="18"/><rect x="714" y="210" width="5" height="18"/><rect x="778" y="210" width="5" height="18"/></g>
@@ -328,14 +379,14 @@
   function mapSVG(opts = {}) {
     const only = opts.group;
     const dotCls = opts.dotClass || (c => { const s = report(c, 3).status; return s === 'accepted' ? 'ok' : (s === 'none' || s === 'returned') ? 'bad' : 'warn'; });
-    const list = clubs().filter(c => stateOf(c) !== 'Terminated');
+    const list = clubs().filter(c => stateOf(c) !== 'Terminated' && (opts.plain || canSeeClub(c)));
     let waves = '';
     for (let y = 30; y < 520; y += 46) waves += `M372 ${y}q8-4 16 0t16 0`;
     return `<svg class="map" viewBox="0 0 420 520" role="img" aria-label="Map of Chennai showing the seven groups and ${list.length} clubs">
       <rect class="m-sea" x="0" y="0" width="420" height="520"/>
       <g class="m-waves" data-loop><path d="${waves}"/></g>
       <path class="m-land" d="M0 0H356C350 60 352 120 344 170C338 205 336 240 340 280C346 330 356 380 366 430C372 470 378 500 382 520H0Z"/>
-      ${Object.keys(ZONES).map(g => `<path class="m-zone${only && only != g ? ' dim' : ''}" style="--g:${gcolor(g)}" d="${ZONES[g]}" data-go="group" data-arg="${g}"><title>Group ${g}</title></path>`).join('')}
+      ${Object.keys(ZONES).map(g => `<path class="m-zone${only && only != g ? ' dim' : ''}" style="--g:${gcolor(g)}" d="${ZONES[g]}" ${opts.plain ? '' : `data-go="group" data-arg="${g}"`}><title>Group ${g}</title></path>`).join('')}
       <path class="m-river" d="M40 230C100 220 150 200 200 205S300 195 343 190"/>
       <path class="m-river" d="M60 330C120 320 180 300 240 300S320 290 339 287"/>
       <path class="m-canal" d="M344 30C338 110 330 200 326 260C324 320 340 400 352 470"/>
@@ -349,7 +400,7 @@
         if (only && only != g) return '';
         const cls = dotCls(c);
         const r = c.members > 1000 ? 7 : c.members > 50 ? 4.6 : 3.6;
-        return `<circle class="m-dot ${cls}${c.name === 'Madras Cosmos' ? ' me' : ''}" style="--i:${i % 24}" cx="${c.x}" cy="${c.y}" r="${r}" data-go="club" data-arg="${c.id}" tabindex="-1"><title>${esc(c.name)}: ${RS[report(c, 3).status][0]}</title></circle>`;
+        return `<circle class="m-dot ${cls}${c.name === 'Madras Cosmos' ? ' me' : ''}" style="--i:${i % 24}" cx="${c.x}" cy="${c.y}" r="${r}" ${opts.plain ? '' : `data-go="club" data-arg="${c.id}"`} tabindex="-1"><title>${esc(c.name)}${opts.plain ? ', ' + c.type.toLowerCase() + ' club' : ': ' + RS[report(c, 3).status][0]}</title></circle>`;
       }).join('')}</g>
     </svg>`;
   }
@@ -373,12 +424,13 @@
     const w = max ? Math.max(0.02, v / max) : 0;
     return `<div class="bar-row"><span class="bl">${label}</span><span class="bt"><i style="--w:${w.toFixed(3)}${color ? ';--c:' + color : ''}"></i></span><span class="bv fig">${right}</span></div>`;
   }
-  const STEPS = ['Secretary', 'President', 'GRS', 'DRS'];
+  const STEPS = ['Club', 'GRS', 'DRS'];
   function tracker(status) {
-    const idx = { none: 0, draft: 0, returned: 0, president: 1, grs: 2, drs: 3, accepted: 4 }[status];
-    const p = Math.min(idx, 3) / 3 * 100;
+    status = status === 'president' ? 'grs' : status;
+    const idx = { none: 0, draft: 0, returned: 0, grs: 1, drs: 2, accepted: 3 }[status];
+    const p = Math.min(idx, 2) / 2 * 100;
     return `<div class="trk" role="img" aria-label="Report route: ${RS[status][0]}">
-      <div class="trk-road"><i style="--w:${(Math.min(idx, 3) / 3).toFixed(3)}"></i></div>
+      <div class="trk-road"><i style="--w:${(Math.min(idx, 2) / 2).toFixed(3)}"></i></div>
       <div class="trk-move" data-rk="${p}">${auto('trk-auto')}</div>
       <ol class="trk-stops">${STEPS.map((s, i) => `<li class="${i < idx ? 'done' : i === idx ? 'here' : ''}"><span class="dot"></span>${s}</li>`).join('')}</ol>
     </div>`;
@@ -408,5 +460,5 @@
   const skeletonRows = (n, cols) => Array.from({ length: n }, () => `<tr class="sk-row">${Array.from({ length: cols }, () => '<td><span class="sk"></span></td>').join('')}</tr>`).join('');
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-  window.UI = { gearPath, P, save, blank, KEY, calm, OS_CALM, get RM() { return calm(); }, $, $$, esc, num, inr, ic, pct, clubs, club, stateOf, groupOf, activeClubs, report, setReport, projects, wallet, gcolor, RS, PAY, pill, rpill, ppill, gpill, ROLES, NAV, HOME_NAME, role, R, view, go, render, cur: () => cur, setCur: c => { cur = c; }, notifs, sheet, closeSheet, toast, confetti, after, gear, skyline, scene, auto, coffee, mapSVG, ring, spark, bar, tracker, qr, pager, skeletonRows, debounce };
+  window.UI = { gearPath, P, save, blank, KEY, calm, OS_CALM, SCOPE, level, myClub, demoClubs, canSeeClub, canSeePerson, visibleClubs, roleInfo, can, download, seatEvents, seatsOf, poolOf, spent, MY_GROUP, get RM() { return calm(); }, $, $$, esc, num, inr, ic, pct, clubs, club, stateOf, groupOf, activeClubs, report, setReport, projects, wallet, gcolor, RS, PAY, pill, rpill, ppill, gpill, ROLES, NAV, HOME_NAME, role, R, view, go, render, cur: () => cur, setCur: c => { cur = c; }, notifs, sheet, closeSheet, toast, confetti, after, gear, skyline, scene, auto, coffee, mapSVG, ring, spark, bar, tracker, qr, pager, skeletonRows, debounce };
 })();

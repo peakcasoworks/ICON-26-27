@@ -28,14 +28,15 @@
   U.view('event', arg => {
     const e = D.EVENTS.find(x => x.id === arg) || D.EVENTS[6];
     const rl = U.role();
-    const isClub = ['pres', 'sec', 'trs'].includes(rl);
+    const isClub = ['pres', 'sec', 'trs', 'vp', 'jsec', 'sgt'].includes(rl);
+    const mine = U.myClub(), seats = e.quota ? U.seatsOf(e, mine) : 0;
     const site = (P.site && P.site[e.id]) || e.site;
     const done = e.status === 'Done';
     return `${head(esc(e.name), `${e.full ? esc(e.full) + '. ' : ''}${esc(e.date)}. Chair ${esc(e.chair)}.`, `<button class="btn" data-act="back">${ic('left')}Back</button>${(rl === 'drr' || rl === 'chair') && COMMITTEE_IDS.includes(e.id) ? `<button class="btn ink" data-go="workspace" data-arg="${e.id}">Open workspace</button>` : ''}`)}
     <div class="stats">
       <div class="stat"><span class="st-l">Status</span><b class="st-v">${U.pill(e.status, done ? 'ok' : e.status === 'Planning' ? 'neutral' : 'warn')}</b></div>
       ${done ? U.fig(e.attendance, 'Attended') : U.fig(U.health(e), 'Ready', 'From committee tasks', '', '%')}
-      ${e.quota ? U.fig(e.quota, 'Seats per club') : U.fig(U.activeClubs().length, 'Clubs invited')}
+      ${e.quota ? (isClub ? U.fig(seats, 'Seats for your club', 'Set by your GRR or GRS') : U.fig(e.quota, 'Seats per club to start', 'Group leads can change it')) : U.fig(U.activeClubs().length, 'Clubs invited')}
       ${e.fee ? U.fig(e.fee, 'Fee per seat', 'Added to each club wallet', '₹') : `<div class="stat"><span class="st-l">Fee</span><b class="st-v">Free</b></div>`}
     </div>
     <div class="grid-2">
@@ -49,8 +50,8 @@
       </section>
       <section class="card">
         ${done ? `<div class="card-h"><h2>Results</h2></div><ul class="kv"><li><span>Attended</span><b class="fig">${num(e.attendance)}</b></li><li><span>Clubs present</span><b class="fig">${Math.min(70, Math.round(e.attendance / 18))}</b></li><li><span>Certificates issued</span><b class="fig">${num(e.attendance)}</b></li><li><span>Points awarded</span><b class="fig">${num(e.attendance * 45)}</b></li></ul>`
-          : isClub ? `<div class="card-h"><h2>For Madras Cosmos</h2></div><p class="note">${e.quota ? `You have ${e.quota} seats.` : 'Every club is invited.'} ${e.fee ? `${inr(e.fee * (e.quota || 1))} goes to your club wallet when you confirm.` : ''}</p><button class="btn ink" data-act="confirm-seats" data-id="${e.id}">${ic('check')}Confirm our seats</button>`
-          : `<div class="card-h"><h2>Seats</h2></div>${e.seats ? `<div class="prog"><span class="bt"><i style="--w:${(e.filled / e.seats).toFixed(2)}"></i></span><span class="fig">${e.filled} of ${e.seats}</span></div>` : ''}<p class="note">Clubs confirm their seats here. Fees post to each club wallet automatically.</p>`}
+          : isClub ? `<div class="card-h"><h2>For ${esc(mine.name)}</h2></div><p class="note">${e.quota ? `Your group lead gave your club ${seats} seat${seats === 1 ? '' : 's'}.` : 'Every club is invited.'} ${e.fee ? `${inr(e.fee * (e.quota ? seats : 1))} is in your club wallet. Pay it with your other dues in one go.` : ''}</p>${['pres', 'sec', 'jsec'].includes(rl) ? `<button class="btn ink" data-act="confirm-seats" data-id="${e.id}">${ic('check')}Confirm our seats</button>` : ''}`
+          : `<div class="card-h"><h2>Seats</h2>${e.quota && U.can.seats() ? `<button class="btn sm ink" data-go="seats" data-arg="${e.id}">Assign seats</button>` : ''}</div>${e.seats ? `<div class="prog"><span class="bt"><i style="--w:${(e.filled / e.seats).toFixed(2)}"></i></span><span class="fig">${e.filled} of ${e.seats}</span></div>` : ''}<p class="note">${e.quota ? 'The district gives each group a pool of seats. The GRR or GRS spreads it over the clubs, and the fee lands in each club wallet.' : 'Clubs confirm their seats here. Fees post to each club wallet automatically.'}</p>`}
       </section>
     </div>`;
   });
@@ -84,7 +85,7 @@
 
   /* ---------- DRR official visits ---------- */
   U.view('visits', () => {
-    const rl = U.role(), c = D.cosmos;
+    const rl = U.role(), c = U.myClub();
     const booked = v => P.visits[v.id] != null ? P.visits[v.id] : v.club;
     const mine = D.visits.find(v => booked(v) === c.id);
     const taken = D.visits.filter(v => booked(v)).length;
@@ -96,7 +97,7 @@
     <div class="slots">${Object.entries(days).map(([k, vs]) => `<section class="slot-day"><h3><span class="fig">${k.split(' ')[0]}</span> ${k.split(' ')[1]}<small>${DOW[vs[0].dow]}</small></h3>${vs.map(v => {
       const b = booked(v), bc = b ? U.club(b) : null;
       const isMine = b === c.id;
-      return `<div class="slot ${b ? 'taken' : ''} ${isMine ? 'mine' : ''}"><span class="fig">${v.time}</span>${b ? `<small>${rl === 'drr' || isMine ? esc(bc ? bc.name : '') : 'Taken'}</small>` : (['pres', 'sec'].includes(rl) && !mine ? `<button class="btn sm ink" data-act="book" data-id="${v.id}">Book</button>` : '<small>Open</small>')}</div>`;
+      return `<div class="slot ${b ? 'taken' : ''} ${isMine ? 'mine' : ''}"><span class="fig">${v.time}</span>${b ? `<small>${rl === 'drr' || isMine ? esc(bc ? bc.name : '') : 'Taken'}</small>` : (['pres', 'sec', 'jsec'].includes(rl) && !mine ? `<button class="btn sm ink" data-act="book" data-id="${v.id}">Book</button>` : '<small>Open</small>')}</div>`;
     }).join('')}</section>`).join('')}</div>`;
   });
 
@@ -114,7 +115,7 @@
     const x = inits().find(i => i.id === id) || inits()[0];
     const r = D.mulberry32(id.length * 31);
     const rows = U.activeClubs().slice().sort((a, b) => b.activity - a.activity).slice(0, x.clubs || 5).map(c => ({ c, v: Math.max(1, Math.round(x.now / (x.clubs || 5) * (0.4 + r() * 1.2))) })).sort((a, b) => b.v - a.v);
-    const canLog = ['pres', 'sec'].includes(U.role());
+    const canLog = ['pres', 'sec', 'jsec'].includes(U.role());
     return `${head(esc(x.name), `${esc(x.type)} run by ${esc(x.owner)}. Clubs log what they did, and the district total updates live.`, `${isHome ? '' : `<button class="btn" data-act="back">${ic('left')}Back</button>`}${canLog ? `<button class="btn ink" data-act="contrib" data-id="${x.id}">${ic('plus')}Log for our club</button>` : ''}`)}
     <section class="card in-hero" style="--g:var(--sw${x.sw})">
       <div><span class="muted">District total</span><b class="in-big fig" data-count="${x.now}">${num(x.now)}</b><span>of ${num(x.goal)} ${esc(x.unit)}</span></div>

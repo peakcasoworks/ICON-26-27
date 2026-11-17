@@ -1,12 +1,14 @@
 /* Wiring: one click, input and submit listener for the whole app, the loader, and boot. */
 (function () {
   const U = UI, { $, $$, esc, num, inr, ic, P, save } = U;
-  const cos = () => D.cosmos;
+  const cos = () => U.myClub();
   const stack = [];
   const go = (v, arg) => { stack.push(U.cur()); if (stack.length > 30) stack.shift(); U.go(v, arg); };
   const rerender = () => U.render({ instant: true, keepScroll: true });
   const roleLabel = r => U.ROLES[r].label;
   const notify = (role, t, goTo) => { P.extraNotifs.unshift({ role, t, go: goTo }); P.extraNotifs = P.extraNotifs.slice(0, 12); save(); };
+  U.notify = notify;
+  U.rerender = rerender;
   const centerOf = el => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
   (P.events || []).forEach(e => { if (!D.EVENTS.find(x => x.id === e.id)) D.EVENTS.push(e); });
 
@@ -16,10 +18,13 @@
   const A = {
     'pick-role'(el) { P.role = el.dataset.role; save(); U.closeSheet(); stack.length = 0; U.go('home'); U.toast('Viewing as ' + roleLabel(P.role)); },
     roles() {
-      U.sheet(`<h2 class="sh-h">Switch role</h2><p class="note">Same demo, different seat. Try sending a report as the secretary, then switch to the president and the GRR.</p>
-        <div class="role-list">${Object.keys(U.ROLES).map(id => `<button class="role-card${P.role === id ? ' on' : ''}" data-act="pick-role" data-role="${id}"><span class="avatar">${ic(U.ROLES[id].icon)}</span><span class="rc-t"><b>${esc(U.ROLES[id].label)}</b><small>${esc(U.ROLES[id].full)}</small></span></button>`).join('')}</div>
+      const clubs = U.demoClubs();
+      U.sheet(`<h2 class="sh-h">Switch role</h2><p class="note">Same demo, different seat. Each login sees only what its job needs: a club sees its own club, a group lead sees the group, the district sees everything.</p>
+        <fieldset class="field"><legend>Club for the club roles</legend><div class="chips" role="radiogroup">${clubs.map(c => `<button type="button" class="chip${U.myClub().id === c.id ? ' on' : ''}" role="radio" aria-checked="${U.myClub().id === c.id}" data-act="demo-club" data-id="${c.id}">${esc(c.name)}<small class="chip-tag">${c.type.toLowerCase()}</small></button>`).join('')}</div></fieldset>
+        <div class="role-list">${Object.keys(U.ROLES).map(id => { const r = U.roleInfo(id); return `<button class="role-card${P.role === id ? ' on' : ''}" data-act="pick-role" data-role="${id}"><span class="avatar">${ic(r.icon)}</span><span class="rc-t"><b>${esc(r.label)}</b><small>${esc(r.full)}</small></span></button>`; }).join('')}</div>
         <button class="btn full" data-act="landing">Back to the start page</button>`);
     },
+    'demo-club'(el) { P.myClub = Number(el.dataset.id); save(); stack.length = 0; U.closeSheet(); U.go('home'); U.toast('Club roles now show ' + U.myClub().name + ', a ' + U.myClub().type.toLowerCase() + ' club'); },
     landing() { U.closeSheet(); U.go('roles'); },
     'to-roles'() { const r = $('#roles'); if (r) window.scrollTo({ top: r.getBoundingClientRect().top + window.scrollY - 8, behavior: U.calm() ? 'auto' : 'smooth' }); },
     more() {
@@ -62,18 +67,6 @@
     /* people */
     'people-f'(el) { U.PF.role = el.dataset.v; U.PF.page = 1; rerender(); },
     'people-page'(el) { U.PF.page = Number(el.dataset.page); paintPeople(true); },
-    'add-member'() {
-      U.sheet(`<h2 class="sh-h">Add a member</h2><form data-form="member" class="form">
-        <label class="field" for="amN"><span>Full name</span><input id="amN" required autofocus></label>
-        <label class="field" for="amE"><span>Email or phone</span><input id="amE" required></label>
-        <fieldset class="field"><legend>Post</legend>${chipRow('post', ['Member', 'Board member', 'Joint Secretary'], 'Member')}</fieldset>
-        <div class="form-act"><button class="btn ink" type="submit">Add member</button><span class="muted">They get a link to set up their pass.</span></div></form>`);
-    },
-    import() {
-      U.sheet(`<h2 class="sh-h">Import your roster</h2><p class="note">Upload the sheet you already keep. Name, email, phone and post are matched for you.</p>
-        <label class="file big" for="impF">${ic('upload')}<span id="impL">Choose a CSV or Excel file</span><input id="impF" type="file" accept=".csv,.xlsx" data-on="import-file"></label>
-        <div id="impPrev"></div>`);
-    },
 
     /* designations */
     'add-desig'() {
@@ -97,23 +90,17 @@
     },
     'nudge-all'(el) {
       const g = Number(el.dataset.g);
-      const list = U.activeClubs().filter(c => U.groupOf(c) === g && ['none', 'draft', 'returned', 'president'].includes(U.report(c, 3).status));
+      const list = U.activeClubs().filter(c => U.groupOf(c) === g && ['none', 'draft', 'returned'].includes(U.report(c, 3).status));
       list.forEach(c => { P.nudged[c.id] = true; }); save();
       U.confetti(...centerOf(el)); rerender();
       U.toast(`Reminders sent to ${list.length} clubs`);
     },
-    sign(el) {
-      const c = U.club(el.dataset.id), mi = Number(el.dataset.m);
-      U.setReport(c, mi, { status: 'grs' }, 'Signed by the president and sent to GRS');
-      notify('grr', `${c.name} sent its ${D.MONTHS[mi].label} report for your check.`, 'report-' + c.id);
-      rerender();
-      U.sheet(`<div class="done-sheet">${U.coffee()}<h2 class="sh-h">Signed and sent</h2><p class="note">Your GRS checks it next, then the DRS. You will hear back at each stop.</p>${U.tracker('grs')}<button class="btn ink full" data-act="close">Done</button></div>`);
-    },
     accept(el) {
       const c = U.club(el.dataset.id), r = U.report(c, 3), rl = U.role();
-      const next = rl === 'grr' && r.status === 'grs' ? 'drs' : 'accepted';
+      const next = ['grr', 'grs', 'gco'].includes(rl) && r.status === 'grs' ? 'drs' : 'accepted';
       U.setReport(c, 3, { status: next, comment: '' }, next === 'drs' ? 'Checked by GRS and sent to DRS' : 'Accepted by ' + roleLabel(rl));
       notify(next === 'drs' ? 'drs' : 'pres', next === 'drs' ? `${c.name} October report is ready for you.` : 'Your October report was accepted.', next === 'drs' ? 'report-' + c.id : 'home');
+      if (next !== 'drs') notify('sec', 'Your October report was accepted.', 'home');
       U.resetScore(); U.confetti(...centerOf(el)); rerender();
       U.toast(next === 'drs' ? 'Sent to the DRS' : 'Report accepted. Points added to the scorecard.');
     },
@@ -152,29 +139,16 @@
       U.sheet(`<h2 class="sh-h">A quiet month</h2><p class="note">It still counts as on time. Tell us why in one tap.</p><form data-form="quiet" data-m="${el.dataset.m}" class="form">${chipRow('reason', ['Exams', 'Festival break', 'Semester holidays', 'Club rebuilding'], 'Exams')}<div class="form-act"><button class="btn ink" type="submit">Mark quiet month</button></div></form>`);
     },
     'submit-month'(el) {
-      const mi = Number(el.dataset.m), r = U.report(cos(), mi);
-      U.setReport(cos(), mi, { status: 'president', data: Object.assign({}, r.data || {}, U.MF) }, 'Sent by the secretary to the president');
-      notify('pres', `The ${D.MONTHS[mi].label} report is waiting for your sign-off.`, 'monthly-' + mi);
+      const mi = Number(el.dataset.m), r = U.report(cos(), mi), who = U.R().label.replace('Club ', '').toLowerCase();
+      U.setReport(cos(), mi, { status: 'grs', data: Object.assign({}, r.data || {}, U.MF) }, `Sent to the GRS by the ${who}`);
+      notify('grr', `${cos().name} sent its ${D.MONTHS[mi].label} report for your check.`, 'report-' + cos().id);
+      notify('grs', `${cos().name} sent its ${D.MONTHS[mi].label} report for your check.`, 'report-' + cos().id);
       rerender();
-      U.sheet(`<div class="done-sheet">${U.coffee()}<h2 class="sh-h">Sent to your president</h2><p class="note">One tap from them and it rides on to your GRS. Time for a filter coffee.</p>${U.tracker('president')}<button class="btn ink full" data-act="close">Done</button></div>`);
+      U.sheet(`<div class="done-sheet">${U.coffee()}<h2 class="sh-h">Sent to your GRS</h2><p class="note">That is all it needed. One send from the president or the secretary is enough. Your GRS checks it next, then the DRS. Time for a filter coffee.</p>${U.tracker('grs')}<button class="btn ink full" data-act="close">Done</button></div>`);
     },
 
     /* money */
-    pay(el) {
-      U.sheet(`<h2 class="sh-h">Mark as paid</h2><form data-form="pay" data-id="${el.dataset.id}" class="form">
-        <label class="field" for="pyR"><span>UPI reference number</span><input id="pyR" name="ref" required inputmode="numeric" placeholder="12-digit UTR" autofocus></label>
-        <label class="file" for="pyS">${ic('upload')}<span>Add payment screenshot</span><input id="pyS" type="file" accept="image/*"></label>
-        <div class="form-act"><button class="btn ink" type="submit">Send for checking</button><span class="muted">The district treasurer confirms it against the bank statement.</span></div></form>`);
-    },
     'f-page'(el) { U.FF.page = Number(el.dataset.page); const v = U.verifyRows(); $('#vRows').innerHTML = v.body; $('#vPager').innerHTML = v.pager; },
-    verify(el) {
-      const row = el.closest('tr');
-      P.pay[el.dataset.id] = Object.assign({}, P.pay[el.dataset.id] || {}, { status: 'verified' }); save();
-      U.resetScore();
-      row.classList.add('leaving');
-      setTimeout(rerender, U.RM ? 0 : 260);
-      U.toast('Payment confirmed. The club sees it as paid.');
-    },
 
     /* events */
     'ev-f'(el) { U.EF.f = el.dataset.v; rerender(); },
@@ -219,7 +193,7 @@
         <div class="form-act"><button class="btn ink" type="submit">Launch to all clubs</button></div></form>`);
     },
     contrib(el) {
-      U.sheet(`<h2 class="sh-h">Log for Madras Cosmos</h2><form data-form="contrib" class="form"><label class="field" for="ctV"><span>How many</span><input id="ctV" type="number" min="1" value="12" autofocus></label><label class="file" for="ctP">${ic('upload')}<span>Add a photo</span><input id="ctP" type="file" accept="image/*"></label><div class="form-act"><button class="btn ink" type="submit">Log it</button></div></form>`);
+      U.sheet(`<h2 class="sh-h">Log for ${esc(cos().name)}</h2><form data-form="contrib" class="form"><label class="field" for="ctV"><span>How many</span><input id="ctV" type="number" min="1" value="12" autofocus></label><label class="file" for="ctP">${ic('upload')}<span>Add a photo</span><input id="ctP" type="file" accept="image/*"></label><div class="form-act"><button class="btn ink" type="submit">Log it</button></div></form>`);
     },
 
     /* season */
@@ -254,7 +228,6 @@
       save(); U.resetScore(); U.closeSheet(); rerender();
       U.toast('State changed. Club counts update everywhere.');
     },
-    member(f) { U.closeSheet(); U.toast('Member added. They get a link to set up their pass.'); },
     desig(f) {
       const d = new FormData(f);
       P.desig.push({ id: 900 + P.desig.length, team: 'Added this season', title: d.get('title'), tpl: d.get('tpl'), scope: d.get('scope') || 'District', holder: d.get('holder') || 'Not assigned yet', isNew: true });
@@ -271,12 +244,6 @@
       const d = new FormData(f), mi = Number(f.dataset.m), r = U.report(cos(), mi);
       U.setReport(cos(), mi, { data: Object.assign({}, r.data || {}, { nothing: true, reason: d.get('reason') }) });
       U.closeSheet(); rerender(); U.toast('Marked as a quiet month');
-    },
-    pay(f) {
-      const d = new FormData(f);
-      P.pay[f.dataset.id] = { status: 'pending', ref: 'UPI ' + d.get('ref') }; save();
-      notify('dt', 'Madras Cosmos sent a payment for checking.', 'home');
-      U.closeSheet(); rerender(); U.toast('Sent. The district treasurer will confirm it.');
     },
     event(f) {
       const d = new FormData(f);
@@ -318,14 +285,11 @@
     'lp-text': () => { $('#lpPreview').innerHTML = U.logPreview(); },
     'lp-joint': el => { U.LF.joint = el.checked; $('#lpPreview').innerHTML = U.logPreview(); },
     'lp-photos': el => { U.LF.photos = el.files.length; $('#photoLbl').textContent = el.files.length + ' photos added'; },
-    'import-file': el => {
-      if (!el.files.length) return;
-      $('#impL').textContent = el.files[0].name;
-      $('#impPrev').innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Post</th><th>Match</th></tr></thead><tbody>${[3, 4, 5].map(i => { const m = D.member(i); return `<tr><td>${esc(m.name)}</td><td>${esc(m.role)}</td><td>${U.pill('Ready', 'ok')}</td></tr>`; }).join('')}</tbody></table></div><p class="note">Showing 3 of the rows found. Duplicates are skipped.</p><button class="btn ink full" data-act="close">Import members</button>`;
-    },
     task: el => { P.tasks[el.dataset.k] = el.checked; save(); if (el.checked) U.confetti(...centerOf(el)); rerender(); },
     weight: el => { P.weights = Object.assign({}, P.weights || { reports: 30, projects: 25, hours: 15, events: 15, fees: 10, inits: 5 }, { [el.dataset.k]: Number(el.value) }); save(); $('#wo-' + el.dataset.k).textContent = el.value; $('#scoreList').innerHTML = U.scoreList(); }
   };
+
+  Object.assign(A, U.extraActions); Object.assign(F, U.extraForms); Object.assign(I, U.extraInputs);
 
   /* ---------- listeners ---------- */
   document.addEventListener('click', e => {
@@ -358,6 +322,8 @@
   document.documentElement.dataset.season = P.season || 'icon';
   const paintMotion = () => { document.documentElement.dataset.motion = P.motion; const b = $('#motionBtn'); if (b) { b.setAttribute('aria-pressed', P.motion === 'on'); b.title = P.motion === 'on' ? 'Animations on' : 'Animations off'; } };
   paintMotion();
+  U.applyTheme();
+  $('#themeBtn').addEventListener('click', () => A.colours());
   $('#motionBtn').addEventListener('click', () => { P.motion = P.motion === 'on' ? 'off' : 'on'; save(); paintMotion(); U.toast(P.motion === 'on' ? 'Animations on' : 'Animations off', 'info'); });
   $('#searchBtn').addEventListener('click', () => window.MO.openSearch());
   if (U.OS_CALM && !P.motionNoted) { P.motionNoted = true; save(); setTimeout(() => U.toast('Your device asks for less motion. Animations stay on here. Use the sparkle button to turn them off.', 'info'), 4200); }
@@ -365,6 +331,16 @@
   $('#reset').addEventListener('click', () => A.reset());
   $('#brandGear').innerHTML = U.gear();
   $('#who').addEventListener('click', () => A.roles());
+  // A link can pick the seat, for reviewers: ?role=pres or ?role=gco&club=college, plus ?theme=dark and ?accent=royal.
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('role') && U.ROLES[qs.get('role')]) P.role = qs.get('role');
+  if (qs.get('role') === 'landing') delete P.role;
+  if (qs.get('club') === 'college') P.myClub = U.demoClubs()[1].id; else if (qs.get('club') === 'community') P.myClub = U.demoClubs()[0].id;
+  if (['light', 'dark', 'auto'].includes(qs.get('theme'))) P.theme = qs.get('theme');
+  if (qs.get('accent')) P.accent = qs.get('accent');
+  if (['on', 'off'].includes(qs.get('motion'))) P.motion = qs.get('motion');
+  if (qs.get('role') || qs.get('club') || qs.get('theme') || qs.get('accent') || qs.get('motion')) { save(); U.applyTheme(); }
+  try { sessionStorage.setItem('icon-seen', qs.has('skip') ? '1' : sessionStorage.getItem('icon-seen') || ''); } catch (e) { /* ignore */ }
   const h = (location.hash || '').slice(1);
   const m = h.match(/^([a-z]+)(?:-(.+))?$/);
   if (P.role) U.setCur({ view: m && h !== 'roles' ? m[1] : 'home', arg: m && m[2] ? (isNaN(m[2]) ? m[2] : Number(m[2])) : null });

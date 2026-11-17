@@ -79,10 +79,9 @@ export function loader(done) {
   if (seen || !on()) { L.hidden = true; done(); return; }
   const U = UI();
   const gearBox = document.getElementById('ldGear');
-  let dots = '', i = 0;
-  for (let y = -32; y <= 32; y += 16) for (let x = -32; x <= 32; x += 16) dots += `<circle class="ld-dot" cx="${x}" cy="${y}" r="2.6" style="--i:${i++}"/>`;
-  const loops = [[16, 16], [-16, 16], [-16, -16], [16, -16]].map(([x, y]) => `M0 0A22.6 22.6 0 0 1 ${2 * x} ${2 * y}A22.6 22.6 0 0 1 0 0`).join('');
-  gearBox.innerHTML = `<svg viewBox="-64 -64 128 128" aria-hidden="true"><path class="ld-teeth" d="${U.gearPath(18, 60, 51, 0, 0)}"/>${dots}<path class="ld-rose" pathLength="1" d="${loops}"/><path class="ld-ring" pathLength="1" d="M0 -40A40 40 0 1 1 0 40A40 40 0 1 1 0 -40"/></svg>`;
+  const w = WHEEL.paths(0, 0, 60);
+  // Drawn in this order as the sparks land: the window and hub outlines, the spokes, then the solid wheel fills in.
+  gearBox.innerHTML = `<svg viewBox="-64 -64 128 128" aria-hidden="true"><path class="ld-ring" pathLength="1" d="${WHEEL.circle(0, 0, 60 * 0.7)}${WHEEL.circle(0, 0, 60 * 0.3)}"/><path class="ld-rose" pathLength="1" d="${w.spokes}"/><g class="ld-teeth"><path fill-rule="evenodd" d="${w.rim}"/><path fill-rule="evenodd" d="${w.hub}"/><path d="${w.spokes}"/></g></svg>`;
   document.getElementById('ldSky').innerHTML = U.scene('ld');
   const name = U.P.season === 'vibe' ? 'VIBE' : 'ICON';
   document.getElementById('ldName').innerHTML = name.split('').map(c => `<span class="ltr">${c}</span>`).join('');
@@ -115,7 +114,6 @@ export function loader(done) {
   tl.to('#ldSkip', { autoAlpha: 1, duration: 0.3 }, 0.2)
     .to(gearBox, { autoAlpha: 1, scale: 1, duration: 0.5, ease: 'power2.out' }, 1.25)
     .to('#ldCanvas', { autoAlpha: 0, duration: 0.5 }, 1.45)
-    .from(q('.ld-dot'), { scale: 0, transformOrigin: '50% 50%', duration: 0.3, stagger: 0.015, ease: 'back.out(3)' }, 1.3)
     .to(q('.ld-rose'), { strokeDashoffset: 0, duration: 0.8, ease: 'power2.inOut' }, 1.4)
     .to(q('.ld-ring'), { strokeDashoffset: 0, duration: 0.6, ease: 'power2.inOut' }, 1.6)
     .to(q('.ld-teeth'), { autoAlpha: 1, rotate: 0, scale: 1, duration: 0.7, ease: 'back.out(1.8)' }, 1.7)

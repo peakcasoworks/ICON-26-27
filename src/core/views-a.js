@@ -3,7 +3,7 @@
   const U = UI, { esc, num, inr, ic, pct, P } = U;
   const head = (title, sub, act = '') => `<header class="ph"><div class="ph-t"><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ''}</div>${act ? `<div class="ph-act">${act}</div>` : ''}</header>`;
   U.head = head;
-  const cosmos = () => D.cosmos;
+  const cosmos = () => U.myClub();
   const fig = (v, label, sub, pre = '', suf = '') => `<div class="stat"><span class="st-l">${label}</span><b class="st-v fig" data-count="${v}" data-pre="${pre}" data-suf="${suf}">${pre}${num(v)}${suf}</b>${sub ? `<span class="st-s">${sub}</span>` : ''}</div>`;
   U.fig = fig;
   U.groupStandings = () => D.GROUPS.map(g => {
@@ -21,14 +21,17 @@
   }).join('')}</div>`;
 
   /* ---------- role picker ---------- */
-  const ORDER = [['District', ['drr', 'drs', 'dt']], ['Group and portfolio', ['grr', 'dir', 'chair']], ['Club', ['pres', 'sec', 'trs', 'mem']]];
+  const ORDER = [['District', ['drr', 'drs', 'dt', 'gco']], ['Group and portfolio', ['grr', 'grs', 'dir', 'chair']], ['Club', ['pres', 'vp', 'sec', 'jsec', 'trs', 'sgt', 'mem']]];
   const ROLE_NOTE = {
     drr: 'Command centre, approvals, season setup', drs: 'Review every monthly report', dt: 'Dues, event fees, payment checks',
     grr: 'Chase and check your group\'s clubs', dir: 'Run a district initiative', chair: 'Committees and tasks for RYLA',
-    pres: 'Sign reports, book the DRR visit', sec: 'Log projects, file the report', trs: 'Pay dues and event fees', mem: 'Pass, points, certificates'
+    gco: 'Every GRR and GRS, club moves, seats', grs: 'Check your group\'s reports with the GRR',
+    pres: 'Send reports, add members, book the DRR visit', vp: 'See reports, roster and events', sec: 'Log projects, send the report, keep the roster', jsec: 'Log projects and help send the report',
+    trs: 'Pay dues and event fees in one go', sgt: 'Scan members in at events', mem: 'Pass, points, certificates'
   };
   const letters = w => w.split('').map((ch, i) => `<span class="ltr" style="--i:${i}">${ch}</span>`).join('');
   U.view('roles', () => `
+    ${U.landingNav()}
     <section class="land">
       ${U.scene('land-sky')}
       <div class="land-top">
@@ -36,9 +39,11 @@
         <button class="btn ink lg" data-act="to-roles">Choose your role${ic('chev')}</button>
       </div>
     </section>
+    ${U.landingSections()}
     <section class="roles-wrap" id="roles">
+      <div class="role-intro"><span class="eyebrow">Sign in</span><h2 class="sec-h">Choose your role</h2><p class="lede">In the real site you sign in with your own login and see only your seat. In this demo, pick a seat to try it.</p></div>
       ${ORDER.map(([g, ids]) => `<div class="role-group"><h2>${g}</h2><div class="role-grid">${ids.map(id => {
-        const r = U.ROLES[id];
+        const r = U.roleInfo(id);
         return `<button class="role-card" data-act="pick-role" data-role="${id}"><span class="avatar">${ic(r.icon)}</span><span class="rc-t"><b>${esc(r.label)}</b><small>${esc(ROLE_NOTE[id])}</small></span>${ic('right', 'rc-go')}</button>`;
       }).join('')}</div></div>`).join('')}
     </section>`);
@@ -49,10 +54,11 @@
     if (r === 'drr') return drrHome();
     if (r === 'drs') return U.views_reports(true);
     if (r === 'dt') return U.views_finance();
-    if (r === 'grr') return groupHome(6, true);
+    if (r === 'gco') return U.views_gco();
+    if (r === 'grr' || r === 'grs') return groupHome(6, true);
     if (r === 'dir') return U.views_initiative('blood', true);
     if (r === 'chair') return U.views_workspace('ryla');
-    if (r === 'pres' || r === 'sec') return clubHome();
+    if (['pres', 'sec', 'vp', 'jsec', 'sgt'].includes(r)) return clubHome();
     if (r === 'trs') return U.views_wallet();
     return passView();
   });
@@ -63,7 +69,7 @@
     const all = U.clubs();
     const oct = act.map(c => U.report(c, 3).status);
     const cnt = s => oct.filter(x => x === s).length;
-    const accepted = cnt('accepted'), review = cnt('grs') + cnt('drs') + cnt('president'), notStarted = cnt('none') + cnt('draft') + cnt('returned');
+    const accepted = cnt('accepted'), review = cnt('grs') + cnt('drs'), notStarted = cnt('none') + cnt('draft') + cnt('returned');
     let due = 0, got = 0;
     act.forEach(c => U.wallet(c).forEach(w => { if (w.status === 'verified') got += w.amount; else due += w.amount; }));
     const members = act.reduce((a, c) => a + c.members, 0);
@@ -75,10 +81,12 @@
       return { g, v: pct(ok, cs.length), n: cs.length, ok };
     }).sort((a, b) => b.v - a.v);
     const upcoming = D.EVENTS.filter(e => e.status !== 'Done').slice(0, 4);
+    let waitingPay = 0;
+    act.forEach(c => U.wallet(c).forEach(w => { if (w.status === 'pending') waitingPay++; }));
     const needs = [
       [ic('doc'), `${review} October reports are moving through review`, 'reports', 'Open queue'],
       [ic('alert'), `${notStarted} clubs have not filed October`, 'reports', 'See clubs'],
-      [ic('flag'), 'RYLA backstage committee is behind', 'event-ryla', 'Open RYLA'],
+      [ic('rupee'), `${waitingPay} payments are with the district treasurer`, 'finance', 'Open finance'],
       [ic('building'), `${proposed || 2} clubs waiting for charter approval`, 'clubs', 'Review']
     ];
     return `${head('Command centre', 'District 3233 on Monday 16 November 2026. October reports were due on 5 November.', `<button class="btn" data-go="season">${ic('sun')}Season setup</button><button class="btn ink" data-act="new-initiative">${ic('plus')}New initiative</button>`)}
@@ -86,7 +94,7 @@
       ${fig(act.length, 'Active clubs', `${act.length - college} community, ${college} college`)}
       ${fig(members, 'Members', 'From club rosters')}
       ${fig(got, 'Dues and fees collected', `${inr(due)} still open`, '₹')}
-      ${fig(33, 'Days to RYLA', '117 of 180 seats filled')}
+      ${fig(33, 'Days to RYLA', 'Run by the RYLA chairperson')}
     </div>
     <div class="grid-cc">
       <section class="card">
@@ -140,10 +148,10 @@
     const mem = cs.reduce((a, c) => a + c.members, 0);
     const ok = cs.filter(c => U.report(c, 3).status === 'accepted').length;
     const waitingMe = cs.filter(c => U.report(c, 3).status === 'grs');
-    const lagging = cs.filter(c => ['none', 'draft', 'returned', 'president'].includes(U.report(c, 3).status));
+    const lagging = cs.filter(c => ['none', 'draft', 'returned'].includes(U.report(c, 3).status));
     const overdue = cs.filter(c => U.wallet(c).some(w => w.status === 'overdue')).length;
     return `<div class="g-band" style="--g:${U.gcolor(gid)}"><span>${g.name}, ${esc(g.area)}</span><small>GRR ${esc(g.grr)}, GRS ${esc(g.grs)}</small></div>
-    ${head(mine ? 'My group' : g.name, `${cs.length} active clubs and ${num(mem)} members. You check reports before they reach the DRS.`, lagging.length ? `<button class="btn ink" data-act="nudge-all" data-g="${gid}">${ic('bell')}Nudge ${lagging.length} clubs</button>` : '')}
+    ${head(mine ? 'My group' : g.name, `${cs.length} active clubs and ${num(mem)} members. You check reports before they reach the DRS.`, lagging.length ? `<button class="btn ink" data-act="nudge-all" data-g="${gid}">${ic('bell')}Nudge ${lagging.length} clubs</button>` : '') + `<button class="btn" data-go="seats">${ic('id')}Assign seats</button>`}
     <div class="stats">
       ${fig(cs.length, 'Clubs')}
       ${fig(pct(ok, cs.length), 'October accepted', `${ok} of ${cs.length}`, '', '%')}
@@ -158,7 +166,7 @@
           const st = U.report(c, 3).status, w = U.wallet(c);
           const fee = w.some(x => x.status === 'overdue') ? 'overdue' : w.some(x => x.status === 'due') ? 'due' : 'verified';
           const nudged = P.nudged[c.id];
-          const action = st === 'grs' ? `<button class="btn sm ink" data-go="report" data-arg="${c.id}">Check</button>` : ['none', 'draft', 'returned', 'president'].includes(st) ? `<button class="btn sm" data-act="nudge" data-id="${c.id}" ${nudged ? 'disabled' : ''}>${nudged ? 'Nudged' : 'Nudge'}</button>` : '';
+          const action = st === 'grs' ? `<button class="btn sm ink" data-go="report" data-arg="${c.id}">Check</button>` : ['none', 'draft', 'returned'].includes(st) ? `<button class="btn sm" data-act="nudge" data-id="${c.id}" ${nudged ? 'disabled' : ''}>${nudged ? 'Nudged' : 'Nudge'}</button>` : '';
           return `<tr><td><button class="lnk strong" data-go="club" data-arg="${c.id}">${esc(c.name)}</button><small class="sub">${c.type}, ${c.members} members</small></td><td>${U.rpill(st)}</td><td class="fig">${U.projects(c, 4).length}</td><td>${U.ppill(fee)}</td><td class="r">${action}</td></tr>`;
         }).join('')}</tbody></table></div>
       </section>
@@ -179,12 +187,11 @@
     const done = steps.filter(s => s.done).length;
     const w = U.wallet(c), open = w.filter(x => x.status !== 'verified');
     const owe = open.reduce((a, x) => a + x.amount, 0);
-    const myVisit = D.visits.find(v => (P.visits[v.id] || v.club) === c.id);
+    const myVisit = D.visits.find(v => (P.visits[v.id] != null ? P.visits[v.id] : v.club) === c.id);
     const evs = D.EVENTS.filter(e => e.status !== 'Done').slice(0, 3);
-    const octAction = r === 'pres' && oct.status === 'president' ? `<button class="btn ink" data-act="sign" data-id="${c.id}" data-m="3">${ic('pen')}Sign and send to GRS</button>`
-      : r === 'sec' && ['draft', 'none', 'returned'].includes(oct.status) ? `<button class="btn ink" data-go="monthly" data-arg="3">Finish October</button>` : '';
-    return `<div class="g-band" style="--g:${U.gcolor(c.group)}"><span>Rotaract Club of Madras Cosmos</span><small>Group ${c.group}, community club since ${c.chartered}, ${c.members} members</small></div>
-    ${head('Club home', r === 'pres' ? 'Sign reports, keep fees clear and book your DRR visit.' : 'Log each project the day it happens. The monthly report then builds itself.', `<button class="btn ink" data-go="log">${ic('plus')}Log a project</button>`)}
+    const octAction = U.can.sendReport() && ['draft', 'none', 'returned'].includes(oct.status) ? `<button class="btn ink" data-go="monthly" data-arg="3">${ic('send')}Finish and send October</button>` : '';
+    return `<div class="g-band" style="--g:${U.gcolor(c.group)}"><span>Rotaract Club of ${esc(c.name)}</span><small>Group ${U.groupOf(c)}, ${c.type.toLowerCase()} club since ${c.chartered}, ${c.members} members</small></div>
+    ${head('Club home', r === 'pres' ? 'Send reports, keep fees clear and book your DRR visit.' : r === 'sgt' ? 'Scan your members in at district events.' : 'Log each project the day it happens. The monthly report then builds itself.', `<button class="btn ink" data-go="log">${ic('plus')}Log a project</button>`)}
     <div class="grid-club">
       <section class="card hero-card">
         <div class="card-h"><h2>November report</h2><span class="muted">Due 5 December, in 19 days</span></div>
@@ -195,11 +202,11 @@
       <section class="card">
         <div class="card-h"><h2>October report</h2>${U.rpill(oct.status)}</div>
         ${U.tracker(oct.status)}
-        <p class="note">${oct.status === 'president' ? 'Your secretary filed it on 7 November, two days late. It needs the president\'s sign-off before your GRS can check it.' : oct.status === 'accepted' ? 'Accepted by the DRS. It now counts toward your scorecard.' : 'It is on its way. You will get a notification at each stop.'}</p>
+        <p class="note">${['draft', 'none', 'returned'].includes(oct.status) ? 'October is late. The president or the secretary can send it, one of you is enough. Late reports still go through, with fewer points.' : oct.status === 'accepted' ? 'Accepted by the DRS. It now counts toward your scorecard.' : 'It is on its way. You will get a notification at each stop.'}</p>
         <div class="row-btns">${octAction}<button class="btn" data-go="report" data-arg="${c.id}">View report</button></div>
       </section>
       <section class="card">
-        <div class="card-h"><h2>Club wallet</h2><button class="lnk" data-go="wallet">Open wallet</button></div>
+        <div class="card-h"><h2>Club wallet</h2>${U.can.pay() ? '<button class="lnk" data-go="wallet">Open wallet</button>' : ''}</div>
         <div class="owe ${owe ? 'has' : ''}"><span>${owe ? 'You owe the district' : 'All clear'}</span><b class="fig" data-count="${owe}" data-pre="₹">${inr(owe)}</b></div>
         <ul class="kv">${open.slice(0, 3).map(x => `<li><span>${esc(x.head)}</span>${U.ppill(x.status)}</li>`).join('')}</ul>
       </section>
@@ -216,20 +223,19 @@
 
   /* ---------- member pass ---------- */
   function passView() {
-    const m = D.member(7);
-    const name = 'Kayal S.';
+    const club = cosmos(), m = D.memberOf(club, 7 % club.members), name = 'Kayal S.';
     const hist = [['Blood Donation Megacamp', '2 Oct', 'On time', 50], ['JOSH District Culturals', '21 Sep', 'Within 15 minutes', 40], ['District Assembly', '10 Aug', 'On time', 50], ['District Orientation', '6 Jul', 'Within 30 minutes', 30]];
-    const certs = [['District Assembly 2026', 'Participation'], ['Blood Donation Megacamp', 'Volunteer, 6 hours'], ['Madras Cosmos', 'Project chair, Notebook drive']];
+    const certs = [['District Assembly 2026', 'Participation'], ['Blood Donation Megacamp', 'Volunteer, 6 hours'], [club.name, 'Project chair, Notebook drive']];
     return `${head('My pass', 'Show this at district events. A sergeant scans it and your points land instantly.')}
     <div class="grid-pass">
       <section class="pass">
         <div class="pass-top">${U.gear()}<div><b>${U.P.season === 'vibe' ? 'VIBE' : 'ICON'} 3233</b><small>Identity pass</small></div></div>
         <div class="pass-qr">${U.qr(3233)}</div>
-        <div class="pass-who"><b>${name}</b><span>Rotaract Club of Madras Cosmos</span><span class="fig">${m.id}</span></div>
+        <div class="pass-who"><b>${name}</b><span>Rotaract Club of ${esc(club.name)}</span><span class="fig">${m.id}</span></div>
         <p class="pass-note">Sample pass. Not scannable.</p>
       </section>
       <div class="col">
-        <div class="stats two">${fig(170, 'Points this year')}${fig(3, 'Rank in your club', 'of 18 members')}</div>
+        <div class="stats two">${fig(170, 'Points this year')}${fig(3, 'Rank in your club', 'of ' + club.members + ' members')}</div>
         <section class="card">
           <div class="card-h"><h2>Check-ins</h2></div>
           <ul class="kv">${hist.map(h => `<li><span><b>${h[0]}</b><small class="sub">${h[1]}, ${h[2]}</small></span><b class="fig">+${h[3]}</b></li>`).join('')}</ul>
@@ -263,6 +269,7 @@
         <button class="btn ${P.season === s[0] ? '' : 'ink'}" data-act="season" data-s="${s[0]}" ${P.season === s[0] ? 'disabled' : ''}>${P.season === s[0] ? 'Showing now' : 'Preview this skin'}</button>
       </section>`).join('')}
     </div>
+    <section class="card callout">${ic('palette')}<p><b>Overall colour.</b> Pick an accent colour and light or dark for the whole site. Everyone can do it for themselves, and the DRR sets the season's default.</p><button class="btn" data-act="colours">Choose colours</button></section>
     <section class="card">
       <div class="card-h"><h2>Handover to the next DRR</h2></div>
       <ol class="timeline">

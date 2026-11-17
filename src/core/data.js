@@ -135,7 +135,7 @@
     const r = mulberry32(club.id * 977 + mi * 13);
     const x = r();
     if (club.state === 'Inactive') return { status: mi < 2 ? 'accepted' : 'none', late: mi >= 2 };
-    if (club.name === 'Madras Cosmos') return mi < 3 ? { status: 'accepted', late: mi === 1, day: mi === 1 ? 7 : 3 } : mi === 3 ? { status: 'president', late: true } : { status: 'draft', late: false };
+    if (club.name === 'Madras Cosmos') return mi < 3 ? { status: 'accepted', late: mi === 1, day: mi === 1 ? 7 : 3 } : mi === 3 ? { status: 'draft', late: true } : { status: 'draft', late: false };
     if (mi < 3) {
       return { status: 'accepted', late: x > 0.78, day: x > 0.78 ? 6 + Math.floor(r() * 9) : 1 + Math.floor(r() * 4) };
     }
@@ -145,7 +145,7 @@
       if (t > 0.52) return { status: 'drs', late: false, day: 4 };
       if (t > 0.42) return { status: 'grs', late: r() > 0.5, day: 5 + Math.floor(r() * 4) };
       if (t > 0.37) return { status: 'returned', late: true };
-      if (t > 0.32) return { status: 'president', late: true };
+      if (t > 0.32) return { status: 'draft', late: true };
       if (t > 0.26) return { status: 'draft', late: true };
       return { status: 'none', late: true };
     }
@@ -265,5 +265,7 @@
     return { i, name, club: c, role, points: Math.floor(r() * 18) * 50, joined: 2019 + Math.floor(r() * 8), id: 'R' + (3233000 + i) };
   }
 
-  window.D = { GROUPS, clubs, MONTHS, AVENUES, FOCUS, EVENTS, COMMITTEES, INITIATIVES, designations, TEMPLATES, visits, checkins, projectsFor, baseReport, walletFor, member, memberCount: acc, cosmos, person, mulberry32 };
+  // The k-th member of one club (the first is its president, then secretary and treasurer).
+  function memberOf(club, k) { const at = clubs.indexOf(club); return member(at < 0 ? 0 : offsets[at] + Math.min(Math.max(0, k), club.members - 1)); }
+  window.D = { GROUPS, clubs, memberOf, MONTHS, AVENUES, FOCUS, EVENTS, COMMITTEES, INITIATIVES, designations, TEMPLATES, visits, checkins, projectsFor, baseReport, walletFor, member, memberCount: acc, cosmos, person, mulberry32 };
 })();
