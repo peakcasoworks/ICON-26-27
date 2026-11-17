@@ -229,7 +229,7 @@
     const club = cosmos(), who = U.passPerson();
     const hist = [['Blood Donation Megacamp', '2 Oct', 'On time', 50], ['JOSH District Culturals', '21 Sep', 'Within 15 minutes', 40], ['District Assembly', '10 Aug', 'On time', 50], ['District Orientation', '6 Jul', 'Within 30 minutes', 30]];
     const certs = [['District Assembly 2026', 'Participation'], ['Blood Donation Megacamp', 'Volunteer, 6 hours'], [club.name, 'Project chair, Notebook drive']];
-    return `${head('My pass', 'Show this at the big events and every DRC, where a district sergeant scans it. At other events your club's paid list counts you.', `<button class="btn ink" data-act="pass-open">${ic('id')}Open full screen</button>`)}
+    return `${head('My pass', 'Show this at the big events and every DRC, where a district sergeant scans it. At other events the paid list of your club counts you.', `<button class="btn ink" data-act="pass-open">${ic('id')}Open full screen</button>`)}
     ${U.passNext()}
     <div class="grid-pass">
       ${U.passCard(false)}
