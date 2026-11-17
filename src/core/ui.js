@@ -63,8 +63,8 @@
 
   /* ---------- roles ---------- */
   const ROLES = {
-    drr: { label: 'DRR', full: 'District Rotaract Representative', who: 'District', icon: 'gear', nav: ['home', 'reports', 'clubs', 'events', 'finance', 'groups', 'seats', 'drc', 'mom', 'initiatives', 'awards', 'designations', 'people', 'visits', 'season'] },
-    drs: { label: 'DRS', full: 'District Rotaract Secretary', who: 'District', icon: 'doc', nav: ['home', 'clubs', 'groups', 'people', 'drc', 'mom', 'events', 'visits'] },
+    drr: { label: 'DRR', full: 'District Rotaract Representative', who: 'District', icon: 'gear', nav: ['home', 'reports', 'clubs', 'events', 'finance', 'groups', 'seats', 'drc', 'mom', 'review', 'initiatives', 'awards', 'designations', 'people', 'visits', 'season'] },
+    drs: { label: 'DRS', full: 'District Rotaract Secretary', who: 'District', icon: 'doc', nav: ['home', 'clubs', 'groups', 'people', 'drc', 'mom', 'review', 'events', 'visits'] },
     dt: { label: 'District Treasurer', full: 'District Treasurer', who: 'District', icon: 'rupee', nav: ['home', 'clubs', 'events'] },
     gco: { label: 'Group Coordinator', full: 'Group Coordinator, all seven groups', who: 'All groups', icon: 'layers', nav: ['home', 'groups', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people', 'initiatives'] },
     grr: { label: 'GRR', full: 'Group Rotaract Representative', who: 'Your group', icon: 'layers', nav: ['home', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people', 'initiatives'] },
@@ -76,7 +76,7 @@
     sec: { label: 'Club Secretary', full: 'Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'drc', 'mom', 'events', 'people', 'pass'] },
     jsec: { label: 'Joint Secretary', full: 'Joint Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'events', 'people', 'pass'] },
     trs: { label: 'Club Treasurer', full: 'Treasurer, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'rupee', nav: ['home', 'events', 'people', 'pass'] },
-    dsgt: { label: 'District Sergeant-at-Arms', full: 'Chief Sergeant-at-Arms, District', who: 'District events', icon: 'badge', nav: ['home', 'events'] },
+    dsgt: { label: 'District Sergeant-at-Arms', full: 'Chief Sergeant-at-Arms, District', who: 'District events', icon: 'badge', nav: ['home', 'review', 'events'] },
     sgt: { label: 'Sergeant-at-Arms', full: 'Sergeant-at-Arms, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'badge', nav: ['home', 'events', 'people', 'pass'] },
     mem: { label: 'Member', full: 'Member, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'id', nav: ['home', 'events', 'initiatives', 'awards'] }
   };
@@ -84,7 +84,7 @@
     home: ['Home', 'home'], reports: ['Reports', 'doc'], clubs: ['Clubs', 'building'], groups: ['Groups', 'layers'], events: ['Events', 'flag'],
     finance: ['Finance', 'rupee'], initiatives: ['Initiatives', 'spark'], awards: ['Scorecard', 'trophy'], designations: ['Designations', 'badge'],
     people: ['People', 'users'], visits: ['DRR visits', 'calendar'], season: ['Season', 'sun'], log: ['Log project', 'plus'],
-    monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id'], seats: ['Seat allotment', 'id'], drc: ['DRC bookings', 'calendar'], mom: ['Minutes', 'doc']
+    monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id'], seats: ['Seat allotment', 'id'], drc: ['DRC bookings', 'calendar'], mom: ['Minutes', 'doc'], review: ['Attendance review', 'badge']
   };
   const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'My group', grs: 'My group', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', sgt: 'Scan at the door', dsgt: 'Scan at the door', trs: 'Club wallet', mem: 'My pass' };
   // The pass sits right after Home for everyone: it is the thing people need first at a door.
