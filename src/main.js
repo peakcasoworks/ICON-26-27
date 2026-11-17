@@ -7,4 +7,5 @@ import './core/views-a.js';
 import './core/views-b.js';
 import './core/views-c.js';
 import './core/views-d.js';
+import './core/views-e.js';
 import './core/app.js';

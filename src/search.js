@@ -6,11 +6,16 @@ const UI = () => window.UI;
 let index = null, open = false, sel = 0, results = [];
 
 function buildIndex() {
-  const U = UI();
   const people = [];
   for (let i = 0; i < D.memberCount; i++) { const m = D.member(i); people.push({ k: (m.name + ' ' + m.id + ' ' + m.club.name).toLowerCase(), m }); }
   index = { people };
 }
+// Search follows the login: a club sees its own club and members, a group lead the group, the district everything.
+// Member lists are never searchable from the portfolio logins (director, event chair).
+const roster = () => {
+  const U = UI();
+  return index.people.concat(U.P.members.map(x => { const c = U.club(x.club); return { k: (x.name + ' ' + (x.ri || '') + ' ' + c.name).toLowerCase(), m: { name: x.name, role: x.post, club: c, id: x.ri || 'RI ID pending', joined: x.joined, points: 0 } }; }));
+};
 
 const norm = s => s.toLowerCase().trim();
 function find(q) {
@@ -20,12 +25,12 @@ function find(q) {
   const pages = U.R().nav.concat(['notifs']).map(id => ({ id, label: id === 'home' ? U.HOME_NAME[U.role()] : id === 'notifs' ? 'Notifications' : U.NAV[id][0], icon: id === 'notifs' ? 'bell' : U.NAV[id][1] }));
   pages.filter(p => !q || has(p.label)).slice(0, q ? 4 : 6).forEach(p => out.push({ g: 'Pages', icon: p.icon, t: p.label, s: 'Go to page', go: [p.id] }));
   if (!q) return out;
-  U.clubs().filter(c => has(c.name) || has(c.place)).slice(0, 6).forEach(c => out.push({ g: 'Clubs', icon: 'building', t: c.name, s: `Group ${U.groupOf(c)}, ${c.type}, ${c.members} members`, go: ['club', c.id] }));
+  U.visibleClubs().filter(c => has(c.name) || has(c.place)).slice(0, 6).forEach(c => out.push({ g: 'Clubs', icon: 'building', t: c.name, s: `Group ${U.groupOf(c)}, ${c.type}, ${c.members} members`, go: ['club', c.id] }));
   D.EVENTS.filter(e => has(e.name) || has(e.full || '') || has(e.kind)).slice(0, 4).forEach(e => out.push({ g: 'Events', icon: 'flag', t: e.name, s: `${e.date}, ${e.status}`, go: ['event', e.id] }));
   D.INITIATIVES.concat(U.P.inits).filter(x => has(x.name) || has(x.type)).slice(0, 4).forEach(x => out.push({ g: 'Initiatives', icon: 'spark', t: x.name, s: `${x.type}, ${x.now} of ${x.goal} ${x.unit}`, go: ['initiative', x.id] }));
   D.designations.concat(U.P.desig).filter(d => has(d.title) || has(d.holder)).slice(0, 4).forEach(d => out.push({ g: 'Posts', icon: 'badge', t: d.title, s: `${d.holder}, ${d.scope}`, go: ['designations'] }));
   let n = 0;
-  for (const p of index.people) { if (p.k.includes(q)) { out.push({ g: 'People', icon: 'user', t: p.m.name, s: `${p.m.role}, ${p.m.club.name}, ${p.m.id}`, person: p.m }); if (++n >= 6) break; } }
+  for (const p of roster()) { if (p.k.includes(q) && U.canSeePerson(p.m)) { out.push({ g: 'People', icon: 'user', t: p.m.name, s: `${p.m.role}, ${p.m.club.name}, ${p.m.id}`, person: p.m }); if (++n >= 6) break; } }
   return out;
 }
 
@@ -39,7 +44,7 @@ function paint(q) {
   const U = UI();
   results = find(q); sel = 0;
   const list = document.getElementById('srList');
-  if (!results.length) { list.innerHTML = `<div class="empty sm">${U.ic('search')}<b>Nothing found for “${U.esc(q)}”</b><span>Try a club, an area like Velachery, a name, or an ID like R3233040.</span></div>`; return; }
+  if (!results.length) { list.innerHTML = `<div class="empty sm">${U.ic('search')}<b>Nothing found for “${U.esc(q)}”</b><span>Try a club, an area, a name, or an ID. You only see what your login allows.</span></div>`; return; }
   let html = '', g = '';
   results.forEach((r, i) => {
     if (r.g !== g) { g = r.g; html += `<div class="sr-g">${g}</div>`; }
@@ -74,12 +79,14 @@ function move(d) {
 
 export function openSearch(prefill = '') {
   const U = UI();
-  if (open) return;
+  if (open || !U.role()) return;
   open = true;
   const el = document.getElementById('search');
   el.hidden = false;
   const input = document.getElementById('srInput');
   input.value = prefill;
+  const lv = U.level();
+  document.getElementById('srScope').textContent = lv === 'district' ? 'The whole district' : lv === 'group' ? 'Group ' + U.MY_GROUP + ' and the events' : lv === 'club' ? U.myClub().name + ' and the events' : 'Clubs and events';
   paint(norm(prefill));
   if (!U.calm()) {
     gsap.fromTo(el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.2 });
@@ -101,7 +108,7 @@ export function initSearch() {
   el.innerHTML = `<div class="sr-panel" role="dialog" aria-modal="true" aria-label="Search the district">
     <label class="sr-field"><svg class="ic" aria-hidden="true"><use href="#i-search"></use></svg><span class="sr">Search</span><input id="srInput" type="search" placeholder="Search clubs, people, events, posts" autocomplete="off" role="combobox" aria-controls="srList" aria-expanded="true"><kbd>esc</kbd></label>
     <div id="srList" class="sr-list" role="listbox"></div>
-    <div class="sr-foot"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>enter</kbd> open</span><span>5,839 people, 72 clubs, every event</span></div></div>`;
+    <div class="sr-foot"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>enter</kbd> open</span><span id="srScope"></span></div></div>`;
   document.body.appendChild(el);
   let t;
   el.addEventListener('input', e => { clearTimeout(t); t = setTimeout(() => paint(norm(e.target.value)), 70); });

@@ -32,6 +32,8 @@ src/setup.js        connects motion and search to the app
 src/core/data.js    sample data: 72 clubs, 7 groups, members, events, initiatives, posts
 src/core/ui.js      state, router, drawings (gear, Chennai scene, auto, rings, pager)
 src/core/views-*.js every screen, by role
+src/core/views-e.js seats, group desk, roster tools, export, bank matching, colours, start page sections
+src/wheel.js        the Rotary wheel, used by the logo and the loader sparks
 src/core/app.js     click, input and form handlers, boot
 ```
 
@@ -42,6 +44,10 @@ Animations are on by default. The yellow sparkle button in the top bar turns the
 ## Notes
 
 - Every person and club name is made up. The only real figures are the VIBE totals and check-ins, from November 2026.
-- The gear is a stand-in drawing, not the official Rotary or Rotaract logo.
+- The Rotary wheel (24 cogs, rim, 6 spokes, keyway) is redrawn from its published proportions in `src/wheel.js`. The real site must use the artwork from the Rotary Brand Center.
 - Group colours are placeholders. Change them on the Season page.
 - Changes you make in the demo are saved in localStorage. "Reset demo" clears them.
+
+## Review links
+
+Open a seat directly: `/?role=pres`, `/?role=gco`, `/?role=landing`. Extras: `&club=college`, `&theme=dark`, `&accent=royal`, `&motion=off`, `&skip=1` (skip the loader).

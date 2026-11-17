@@ -42,9 +42,9 @@
   U.QF = QF;
   function queueRows() {
     const per = 12, rl = U.role();
-    const scopeG = rl === 'grr' ? 6 : QF.g;
-    const want = { review: rl === 'grr' ? ['grs'] : rl === 'drs' ? ['drs'] : ['grs', 'drs'], late: ['none', 'draft', 'president', 'returned'], accepted: ['accepted'], all: null }[QF.s];
-    const list = U.activeClubs().filter(c => (!scopeG || U.groupOf(c) === scopeG) && (!want || want.includes(U.report(c, 3).status)));
+    const scopeG = U.level() === 'group' ? U.MY_GROUP : QF.g;
+    const want = { review: ['grr', 'grs'].includes(rl) ? ['grs'] : rl === 'drs' ? ['drs'] : ['grs', 'drs'], late: ['none', 'draft', 'returned'], accepted: ['accepted'], all: null }[QF.s];
+    const list = U.activeClubs().filter(c => U.canSeeClub(c) && (!scopeG || U.groupOf(c) === scopeG) && (!want || want.includes(U.report(c, 3).status)));
     const pages = Math.max(1, Math.ceil(list.length / per));
     if (QF.page > pages) QF.page = pages;
     return {
@@ -61,7 +61,7 @@
     const rl = U.role();
     const r = queueRows();
     const tab = (v, l) => `<button class="tab${QF.s === v ? ' on' : ''}" role="tab" aria-selected="${QF.s === v}" data-act="q-tab" data-v="${v}">${l}</button>`;
-    const who = rl === 'grr' ? 'GRS checks first, then the DRS accepts.' : rl === 'drs' ? 'Reports reach you after the GRS has checked them.' : 'Every club report for October, wherever it sits on its route.';
+    const who = ['grr', 'grs'].includes(rl) ? 'Check each report before it goes to the DRS.' : rl === 'gco' ? 'Every group\'s reports, with the GRR and GRS who check them.' : rl === 'drs' ? 'Reports reach you after the GRS has checked them.' : 'Every club report for October, wherever it sits on its route.';
     return `${head(isHome ? 'Reports desk' : 'Reports', `October 2026. ${who}`)}
     <section class="card">
       <div class="tabs" role="tablist">${tab('review', 'Waiting for review')}${tab('late', 'Not filed')}${tab('accepted', 'Accepted')}${tab('all', 'All')}</div>
@@ -73,10 +73,10 @@
 
   /* ---------- report detail ---------- */
   U.view('report', arg => {
-    const c = U.club(arg) || D.cosmos, mi = 3, r = U.report(c, mi), rl = U.role();
+    const c = U.club(arg) || U.myClub(), mi = 3, r = U.report(c, mi), rl = U.role();
+    if (!U.canSeeClub(c)) return `${head('October report', 'Not part of your login.')}<section class="card"><div class="empty">${ic('lock')}<b>This report is outside your ${U.level() === 'group' ? 'group' : 'club'}</b><button class="btn sm" data-go="home">Back to home</button></div></section>`;
     const ps = U.projects(c, mi);
-    const canAct = (rl === 'grr' && r.status === 'grs') || (rl === 'drs' && r.status === 'drs') || (rl === 'drr' && ['grs', 'drs'].includes(r.status));
-    const canSign = rl === 'pres' && r.status === 'president' && c === D.cosmos;
+    const canAct = (['grr', 'grs', 'gco'].includes(rl) && r.status === 'grs') || (rl === 'drs' && r.status === 'drs') || (rl === 'drr' && ['grs', 'drs'].includes(r.status));
     const hist = (r.hist || []);
     return `${head(`October report, ${esc(c.name)}`, `Group ${U.groupOf(c)}. ${r.late ? 'Filed after 5 November, so it earns reduced points.' : 'Filed on time.'}`, `<button class="btn" data-act="back">${ic('left')}Back</button>`)}
     <section class="card">
@@ -84,7 +84,6 @@
       ${U.tracker(r.status)}
       ${r.comment ? `<p class="callout warn">${ic('alert')}Returned with a note: ${esc(r.comment)}</p>` : ''}
       ${canAct ? `<div class="decide"><button class="btn ink" data-act="accept" data-id="${c.id}">${ic('check')}${r.status === 'grs' && rl !== 'drr' ? 'Checked, send to DRS' : 'Accept report'}</button><button class="btn" data-act="return" data-id="${c.id}">Return with a note</button></div>` : ''}
-      ${canSign ? `<div class="decide"><button class="btn ink" data-act="sign" data-id="${c.id}" data-m="3">${ic('pen')}Sign and send to GRS</button></div>` : ''}
     </section>
     <div class="grid-2">
       <section class="card">
@@ -134,7 +133,7 @@
           <label class="toggle-row" for="lpJoint"><input type="checkbox" role="switch" class="sw" id="lpJoint" ${LF.joint ? 'checked' : ''} data-on="lp-joint"><span>Joint project with another club</span></label>
           <label class="file" for="lpPhotos">${ic('upload')}<span id="photoLbl">${LF.photos ? LF.photos + ' photos added' : 'Add photos'}</span><input id="lpPhotos" type="file" accept="image/*" multiple data-on="lp-photos"></label>
         </div>
-        <div class="form-act"><button class="btn ink" type="submit">${ic('check')}Save project</button><span class="muted">Saved to November for Madras Cosmos</span></div>
+        <div class="form-act"><button class="btn ink" type="submit">${ic('check')}Save project</button><span class="muted">Saved to November for ${esc(U.myClub().name)}</span></div>
       </form>
       <aside class="card preview">
         <div class="card-h"><h2>What the district will read</h2></div>
@@ -148,13 +147,13 @@
   const MF = { meetings: 2, att: 70, joins: 1, drops: 0, reason: '' };
   U.MF = MF;
   U.view('monthly', arg => {
-    const c = D.cosmos, mi = Number(arg) === 3 ? 3 : 4, r = U.report(c, mi), rl = U.role();
+    const c = U.myClub(), mi = Number(arg) === 3 ? 3 : 4, r = U.report(c, mi), rl = U.role();
     const steps = U.views_monthSteps(c, mi), done = steps.filter(s => s.done).length;
     const ps = U.projects(c, mi), d = r.data || {};
     const locked = !['none', 'draft', 'returned'].includes(r.status);
     const m = D.MONTHS[mi];
     const mstep = (k, label, v, step, unit) => `<div class="stepper"><span class="st-lbl">${label}</span><div class="st-ctl"><button type="button" class="stp" data-act="m-step" data-k="${k}" data-d="-${step}" ${locked ? 'disabled' : ''} aria-label="Less">${ic('minus')}</button><output class="fig" id="mo-${k}">${MF[k]}${unit || ''}</output><button type="button" class="stp" data-act="m-step" data-k="${k}" data-d="${step}" ${locked ? 'disabled' : ''} aria-label="More">${ic('plus')}</button></div></div>`;
-    return `${head(`${m.label} report`, `Rotaract Club of Madras Cosmos. Due ${m.due}.`, `<div class="seg" role="tablist"><button class="${mi === 3 ? 'on' : ''}" role="tab" aria-selected="${mi === 3}" data-go="monthly" data-arg="3">October</button><button class="${mi === 4 ? 'on' : ''}" role="tab" aria-selected="${mi === 4}" data-go="monthly" data-arg="4">November</button></div>`)}
+    return `${head(`${m.label} report`, `Rotaract Club of ${esc(c.name)}. Due ${m.due}.`, `<div class="seg" role="tablist"><button class="${mi === 3 ? 'on' : ''}" role="tab" aria-selected="${mi === 3}" data-go="monthly" data-arg="3">October</button><button class="${mi === 4 ? 'on' : ''}" role="tab" aria-selected="${mi === 4}" data-go="monthly" data-arg="4">November</button></div>`)}
     <div class="grid-log">
       <div class="col">
         <section class="card">
@@ -184,19 +183,27 @@
       <aside class="card preview sticky">
         <div class="card-h"><h2>Your report</h2></div>
         <p class="gen" id="mPreview">${esc(summary(c, mi, Object.assign({}, MF, d)))}</p>
-        ${locked ? `<p class="note">Sent. ${r.status === 'president' ? (rl === 'pres' ? 'Sign it to send it on to your GRS.' : 'Waiting for the president to sign.') : 'It is with your group and district now.'}</p>${r.status === 'president' && rl === 'pres' ? `<button class="btn ink full" data-act="sign" data-id="${c.id}" data-m="${mi}">${ic('pen')}Sign and send to GRS</button>` : ''}`
-          : `<button class="btn ink full" data-act="submit-month" data-m="${mi}">${ic('send')}Send to president</button><p class="note">After you send it the president signs with one tap. Late reports still go through, with fewer points.</p>`}
+        ${locked ? `<p class="note">Sent to the GRS${r.hist && r.hist.length ? '. ' + esc(r.hist[r.hist.length - 1].t) : ''}. ${r.status === 'grs' ? 'Your GRS checks it next, then the DRS.' : 'It is with the district now.'}</p>`
+          : U.can.sendReport() ? `<button class="btn ink full" data-act="submit-month" data-m="${mi}">${ic('send')}Send to GRS</button><p class="note">The president or the secretary can send it. One of you is enough, no second sign-off. Late reports still go through, with fewer points.</p>`
+          : `<p class="note">Your president or secretary sends this report. You can see how far it has got.</p>`}
       </aside>
     </div>`;
   });
 
   /* ---------- club wallet ---------- */
+  // One payment covers everything the club ticks. The club pays once by UPI and gives one reference, the district checks once.
+  let PAYSEL = null;
+  U.paySel = ids => { if (ids) PAYSEL = new Set(ids); return PAYSEL; };
   U.views_wallet = () => {
-    const c = D.cosmos, w = U.wallet(c);
+    const c = U.myClub(), w = U.wallet(c);
     const open = w.filter(x => x.status !== 'verified');
     const owe = open.reduce((a, x) => a + x.amount, 0), paid = w.filter(x => x.status === 'verified').reduce((a, x) => a + x.amount, 0);
-    const canPay = ['trs', 'pres'].includes(U.role());
-    return `${head('Club wallet', 'Everything Madras Cosmos owes the district this year, and what is already settled.')}
+    const canPay = U.can.pay();
+    const payable = w.filter(x => x.status === 'due' || x.status === 'overdue');
+    if (!PAYSEL) PAYSEL = new Set(payable.map(x => x.id));
+    PAYSEL = new Set(payable.filter(x => PAYSEL.has(x.id)).map(x => x.id));
+    const pick = payable.filter(x => PAYSEL.has(x.id)), total = pick.reduce((a, x) => a + x.amount, 0);
+    return `${head('Club wallet', `Everything ${esc(c.name)} owes the district this year, and what is already settled.`)}
     <div class="grid-2">
       <section class="card owe-card ${owe ? 'has' : ''}">
         <span class="muted">${owe ? 'Open balance' : 'All clear'}</span>
@@ -204,17 +211,20 @@
         <div class="split"><span class="bt"><i style="--w:${(paid / (paid + owe || 1)).toFixed(3)}"></i></span><small class="fig">${inr(paid)} paid of ${inr(paid + owe)}</small></div>
       </section>
       <section class="card">
-        <div class="card-h"><h2>Next due</h2></div>
-        ${open.length ? `<p class="big-line">${esc(open[0].head)}</p><p class="note">${inr(open[0].amount)} by ${open[0].due}. Pay by UPI to the district account, then add the reference here.</p>` : '<p class="note">Nothing due. Nice work.</p>'}
+        <div class="card-h"><h2>How paying works</h2></div>
+        <ol class="ladder"><li><b>1</b><span>Tick what you are paying. Everything is ticked by default.</span></li><li><b>2</b><span>Make one UPI payment for the total.</span></li><li><b>3</b><span>Give the one reference. The treasurer checks it once against the bank.</span></li></ol>
       </section>
     </div>
     <section class="card">
-      <div class="card-h"><h2>Fees and dues</h2></div>
-      <ul class="ledger">${w.map(x => `<li class="${x.status}">
-        <div class="lg-t"><b>${esc(x.head)}</b><small class="sub">${esc(x.detail)}, due ${x.due}${x.ref ? `, ${esc(x.ref)}` : ''}</small></div>
+      <div class="card-h"><h2>Fees and dues</h2>${canPay && payable.length ? `<span class="muted">${pick.length} of ${payable.length} ticked</span>` : ''}</div>
+      <ul class="ledger">${w.map(x => {
+        const can = canPay && (x.status === 'due' || x.status === 'overdue');
+        return `<li class="${x.status}">
+        <div class="lg-t">${can ? `<input type="checkbox" class="pay-pick" id="pk-${x.id}" ${PAYSEL.has(x.id) ? 'checked' : ''} data-on="pay-pick" data-id="${x.id}" aria-label="Include ${esc(x.head)}">` : ''}<span><b>${esc(x.head)}</b><small class="sub">${esc(x.detail)}, due ${x.due}${x.ref ? `, ${esc(x.ref)}` : ''}</small></span></div>
         <b class="fig">${inr(x.amount)}</b>
-        <div class="lg-s">${x.status === 'verified' ? '<span class="stamp">Paid</span>' : U.ppill(x.status)}${canPay && (x.status === 'due' || x.status === 'overdue') ? `<button class="btn sm ink" data-act="pay" data-id="${x.id}">Mark as paid</button>` : ''}</div>
-      </li>`).join('')}</ul>
+        <div class="lg-s">${x.status === 'verified' ? '<span class="stamp">Paid</span>' : U.ppill(x.status)}</div>
+      </li>`; }).join('')}</ul>
+      ${canPay && payable.length ? `<div class="pay-bar"><div><span class="muted">One payment for</span><b class="fig">${inr(total)}</b></div><button class="btn ink" data-act="pay-selected" ${pick.length ? '' : 'disabled'}>${ic('rupee')}Pay ${pick.length || ''} ${pick.length === 1 ? 'item' : 'items'} in one go</button></div>` : !canPay && open.length ? `<p class="note">The president or the treasurer makes the payment.</p>` : ''}
     </section>`;
   };
   U.view('wallet', () => U.views_wallet());
@@ -222,13 +232,23 @@
   /* ---------- district finance ---------- */
   const FF = { page: 1 };
   U.FF = FF;
+  // One row per payment, not per fee: a club that paid three fees with one UPI reference is one line to check.
+  function pendingGroups() {
+    const groups = {};
+    U.activeClubs().forEach(c => U.wallet(c).forEach(w => {
+      if (w.status !== 'pending') return;
+      const k = c.id + '|' + (w.ref || w.id);
+      (groups[k] = groups[k] || { c, ref: w.ref || '', items: [] }).items.push(w);
+    }));
+    return Object.values(groups).map(g => Object.assign(g, { total: g.items.reduce((a, x) => a + x.amount, 0) }));
+  }
+  U.pendingGroups = pendingGroups;
   function verifyRows() {
-    const per = 8, list = [];
-    U.activeClubs().forEach(c => U.wallet(c).forEach(w => { if (w.status === 'pending') list.push({ c, w }); }));
+    const per = 8, list = pendingGroups();
     const pages = Math.max(1, Math.ceil(list.length / per));
     if (FF.page > pages) FF.page = pages;
     return {
-      body: list.slice((FF.page - 1) * per, FF.page * per).map(({ c, w }) => `<tr><td><b>${esc(c.name)}</b><small class="sub">${esc(w.head)}</small></td><td class="fig">${esc(w.ref || '')}</td><td class="fig r">${inr(w.amount)}</td><td class="r"><button class="btn sm ink" data-act="verify" data-id="${w.id}" data-club="${c.id}">Confirm</button></td></tr>`).join('') || `<tr><td colspan="4"><div class="empty">${ic('check')}<b>All payments checked</b><span>New UPI references from clubs show up here.</span></div></td></tr>`,
+      body: list.slice((FF.page - 1) * per, FF.page * per).map(g => `<tr><td><b>${esc(g.c.name)}</b><small class="sub">${esc(g.items.map(x => x.head.replace('District ', '')).join(', '))}</small></td><td class="fig">${esc(g.ref)}</td><td class="fig r">${inr(g.total)}</td><td class="r"><button class="btn sm ink" data-act="verify" data-ids="${g.items.map(x => x.id).join(',')}">Confirm</button></td></tr>`).join('') || `<tr><td colspan="4"><div class="empty">${ic('check')}<b>All payments checked</b><span>New UPI references from clubs show up here.</span></div></td></tr>`,
       pager: U.pager(list.length, FF.page, per, 'f-page'), n: list.length
     };
   }
@@ -245,10 +265,11 @@
     }));
     const v = verifyRows();
     return `${head('District finance', 'Dues and event fees from every club. Clubs pay by UPI and you confirm each reference.')}
-    <div class="stats">${U.fig(got, 'Collected', '', '₹')}${U.fig(pend, 'Waiting for your check', `${v.n} payments`, '₹')}${U.fig(due, 'Due, not yet late', '', '₹')}${U.fig(over, 'Overdue', '', '₹')}</div>
+    <div class="stats">${U.fig(got, 'Collected', '', '₹')}${U.fig(pend, 'Waiting for your check', `${v.n} payment${v.n === 1 ? '' : 's'}, one line each`, '₹')}${U.fig(due, 'Due, not yet late', '', '₹')}${U.fig(over, 'Overdue', '', '₹')}</div>
     <div class="grid-cc">
       <section class="card">
-        <div class="card-h"><h2>Check payments</h2><span class="muted">Match each UPI reference with your bank statement</span></div>
+        <div class="card-h"><h2>Check payments</h2>${v.n ? `<button class="btn sm ink" data-act="bank-open">${ic('upload')}Match bank statement</button>` : ''}</div>
+        <p class="note tight">Upload the bank statement once and every payment whose UPI reference and amount match is confirmed for you. Only the ones that do not match are left to check by hand.</p>
         <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Club and fee</th><th>Reference</th><th class="r">Amount</th><th><span class="sr">Action</span></th></tr></thead><tbody id="vRows">${v.body}</tbody></table></div>
         <div id="vPager">${v.pager}</div>
       </section>

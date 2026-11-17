@@ -2,16 +2,17 @@
 (function () {
   const U = UI, { esc, num, inr, ic, pct, P } = U;
   const head = (...a) => U.head(...a);
-  const canAdmin = () => ['drr', 'drs'].includes(U.role());
+  const canAdmin = () => ['drr', 'drs', 'gco'].includes(U.role());
+  const noAccess = what => `${head(esc(what), 'Not part of your login.')}<section class="card"><div class="empty">${ic('lock')}<b>This is outside your ${U.level() === 'group' ? 'group' : 'club'}</b><span>Your login only shows ${U.level() === 'group' ? 'the clubs and people of Group ' + U.MY_GROUP : 'your own club'}. Ask a district official if you need more.</span><button class="btn sm" data-go="home">Back to home</button></div></section>`;
 
   /* ---------- clubs ---------- */
   const CF = { q: '', g: 0, type: '', st: 'Active', page: 1 };
   U.CF = CF;
   function clubRows() {
     const per = 15;
-    const scopeG = U.role() === 'grr' ? 6 : CF.g;
+    const scopeG = U.level() === 'group' ? U.MY_GROUP : CF.g;
     const q = CF.q.trim().toLowerCase();
-    const list = U.clubs().filter(c => (!scopeG || U.groupOf(c) === scopeG) && (!CF.type || c.type === CF.type) && (!CF.st || U.stateOf(c) === CF.st) && (!q || c.name.toLowerCase().includes(q) || c.place.toLowerCase().includes(q)));
+    const list = U.visibleClubs().filter(c => (!scopeG || U.groupOf(c) === scopeG) && (!CF.type || c.type === CF.type) && (!CF.st || U.stateOf(c) === CF.st) && (!q || c.name.toLowerCase().includes(q) || c.place.toLowerCase().includes(q)));
     const pages = Math.max(1, Math.ceil(list.length / per));
     if (CF.page > pages) CF.page = pages;
     const rows = list.slice((CF.page - 1) * per, CF.page * per);
@@ -26,7 +27,7 @@
   }
   U.clubRows = clubRows;
   U.view('clubs', () => {
-    const all = U.clubs();
+    const all = U.visibleClubs();
     const counts = s => all.filter(c => U.stateOf(c) === s).length;
     const r = clubRows();
     const chip = (key, val, label) => `<button class="chip${CF[key] === val ? ' on' : ''}" data-act="club-f" data-k="${key}" data-v="${val}" aria-pressed="${CF[key] === val}">${label}</button>`;
@@ -36,7 +37,7 @@
         <label class="search">${ic('search')}<span class="sr">Search clubs</span><input id="clubQ" type="search" placeholder="Search by club or area" value="${esc(CF.q)}" data-on="club-q" autocomplete="off"></label>
         <div class="chips" aria-label="Club type">${chip('type', '', 'All types')}${chip('type', 'Community', 'Community')}${chip('type', 'College', 'College')}</div>
         <div class="chips" aria-label="Club state">${chip('st', 'Active', 'Active')}${chip('st', 'Proposed', 'Proposed')}${chip('st', 'Inactive', 'Inactive')}${chip('st', '', 'Any state')}</div>
-        ${U.role() === 'grr' ? '' : `<label class="sel"><span class="sr">Group</span><select id="clubG" data-on="club-g"><option value="0">All groups</option>${D.GROUPS.map(g => `<option value="${g.id}" ${CF.g === g.id ? 'selected' : ''}>${g.name}</option>`).join('')}</select></label>`}
+        ${U.level() === 'group' ? '' : `<label class="sel"><span class="sr">Group</span><select id="clubG" data-on="club-g"><option value="0">All groups</option>${D.GROUPS.map(g => `<option value="${g.id}" ${CF.g === g.id ? 'selected' : ''}>${g.name}</option>`).join('')}</select></label>`}
       </div>
       <div class="tbl-wrap"><table class="tbl hover"><thead><tr><th>Club</th><th>Group</th><th>Type</th><th class="r">Members</th><th>October report</th><th>Fees</th><th>State</th></tr></thead><tbody id="clubRows">${r.body}</tbody></table></div>
       <div id="clubPager">${r.pager}</div>
@@ -45,7 +46,8 @@
 
   /* ---------- club detail ---------- */
   U.view('club', arg => {
-    const c = U.club(arg) || D.cosmos;
+    const c = U.club(arg) || U.myClub();
+    if (!U.canSeeClub(c)) return noAccess('Club');
     const st = U.stateOf(c), g = U.groupOf(c);
     const w = U.wallet(c), open = w.filter(x => x.status !== 'verified').reduce((a, x) => a + x.amount, 0);
     const log = (P.clubs[c.id] && P.clubs[c.id].log) || [];
@@ -67,7 +69,7 @@
       <section class="card">
         <div class="card-h"><h2>Board</h2></div>
         <ul class="kv"><li><span>President</span><b>${esc(c.president)}</b></li><li><span>Secretary</span><b>${esc(c.secretary)}</b></li><li><span>Treasurer</span><b>${esc(c.treasurer)}</b></li><li><span>Beneficiaries, Oct and Nov</span><b class="fig">${num(ben)}</b></li></ul>
-        ${canAdmin() ? `<label class="field inline" for="moveG"><span>Move to group</span><select id="moveG" data-on="move-group" data-id="${c.id}">${D.GROUPS.map(x => `<option value="${x.id}" ${x.id === g ? 'selected' : ''}>${x.name}, ${esc(x.area)}</option>`).join('')}</select></label>` : ''}
+        ${canAdmin() ? `<label class="field inline" for="moveG"><span>Assign to group</span><select id="moveG" data-on="move-group" data-id="${c.id}">${D.GROUPS.map(x => `<option value="${x.id}" ${x.id === g ? 'selected' : ''}>${x.name}, ${esc(x.area)}</option>`).join('')}</select></label>` : ''}
       </section>
     </div>
     <section class="card">
@@ -95,40 +97,75 @@
   });
 
   /* ---------- people ---------- */
+  // Posts every club has to fill, and the usual extras. A club can add its own (Editor, PRO, Chief Whip ...), because boards differ.
+  const MANDATORY = ['President', 'Vice President', 'Secretary', 'Treasurer', 'Sergeant-at-Arms'];
+  const COMMON = ['Joint Secretary', 'Associate Sergeant-at-Arms', 'Immediate Past President (IPP)', 'Board member', 'Member'];
+  U.POSTS = { MANDATORY, COMMON };
+  U.customPosts = () => P.posts[U.myClub().id] || [];
+  U.allPosts = () => MANDATORY.concat(COMMON, U.customPosts());
   const PF = { q: '', role: '', page: 1, club: 0 };
   let ALL = null;
-  const allMembers = () => { if (!ALL) { ALL = []; for (let i = 0; i < D.memberCount; i++) ALL.push(D.member(i)); } return ALL; };
+  const base = () => { if (!ALL) { ALL = []; for (let i = 0; i < D.memberCount; i++) ALL.push(D.member(i)); } return ALL; };
+  const added = () => P.members.map((x, k) => ({ i: -1 - k, name: x.name, club: U.club(x.club), role: x.post, points: 0, joined: x.joined || 2026, id: x.ri || 'RI ID pending', added: true, x }));
+  U.rosterOf = club => base().filter(m => m.club.id === club.id).concat(added().filter(m => m.club.id === club.id));
+  const allMembers = () => base().concat(added());
+  const isOwn = () => U.level() === 'club';
   function peopleList() {
-    const own = ['pres', 'sec', 'trs', 'mem'].includes(U.role());
     const q = PF.q.trim().toLowerCase();
-    return allMembers().filter(m => (!own || m.club === D.cosmos) && (!PF.club || m.club.id === PF.club) && (!PF.role || (PF.role === 'Board' ? m.role !== 'Member' : m.role === PF.role)) && (!q || m.name.toLowerCase().includes(q) || m.club.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q)));
+    const isBoard = r => r !== 'Member';
+    return allMembers().filter(m => U.canSeePerson(m) && (!PF.club || m.club.id === PF.club) && (!PF.role || (PF.role === 'Board' ? isBoard(m.role) : m.role === PF.role)) && (!q || m.name.toLowerCase().includes(q) || m.club.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q) || m.role.toLowerCase().includes(q)));
   }
   function peopleRows() {
     const per = 25, list = peopleList();
     const pages = Math.max(1, Math.ceil(list.length / per));
     if (PF.page > pages) PF.page = pages;
     const rows = list.slice((PF.page - 1) * per, PF.page * per);
+    const phone = isOwn() ? `<td class="lock">${ic('check')}<span>Your club</span></td>` : `<td class="lock">${ic('lock')}<span>District officials</span></td>`;
     return {
-      body: rows.length ? rows.map(m => `<tr><td><span class="pp">${esc(m.name.split(' ').map(x => x[0]).join(''))}</span><b>${esc(m.name)}</b></td><td>${esc(m.club.name)}</td><td>${esc(m.role)}</td><td class="fig">${m.id}</td><td class="fig r">${m.points}</td><td class="lock">${ic('lock')}<span>District officials</span></td></tr>`).join('') : `<tr><td colspan="6"><div class="empty">${ic('users')}<b>Nobody matches</b><span>Try part of a name, a club or an RI-style ID.</span></div></td></tr>`,
+      body: rows.length ? rows.map(m => `<tr><td><span class="pp">${esc(m.name.split(' ').map(x => x[0]).join(''))}</span><b>${esc(m.name)}</b>${m.added ? ' ' + U.pill('New', 'ok') : ''}</td><td>${esc(m.club.name)}</td><td>${esc(m.role)}</td><td class="fig">${esc(m.id)}</td><td class="fig r">${m.points}</td>${phone}</tr>`).join('') : `<tr><td colspan="6"><div class="empty">${ic('users')}<b>Nobody matches</b><span>Try part of a name, a post or an ID.</span></div></td></tr>`,
       pager: U.pager(list.length, PF.page, per, 'people-page'),
       total: list.length
     };
   }
-  U.peopleRows = peopleRows; U.PF = PF;
+  U.peopleRows = peopleRows; U.PF = PF; U.peopleList = peopleList;
+
+  function postsCard() {
+    const club = U.myClub(), roster = U.rosterOf(club), manage = U.can.roster();
+    const holders = post => roster.filter(m => m.role === post);
+    const row = post => {
+      const h = holders(post);
+      return `<li><span><b>${esc(post)}</b><small class="sub">${h.length ? esc(h.map(x => x.name).join(', ')) : 'Not filled yet'}</small></span>${h.length ? U.pill('Filled', 'ok') : manage ? `<button class="btn sm ink" data-act="add-member" data-post="${esc(post)}">Add</button>` : U.pill('Open', 'warn')}</li>`;
+    };
+    const custom = U.customPosts();
+    const open = MANDATORY.filter(p => !holders(p).length).length;
+    return `<section class="card">
+      <div class="card-h"><h2>Club posts</h2><span class="muted">${open ? open + ' of ' + MANDATORY.length + ' required posts still open' : 'All required posts are filled'}</span></div>
+      <ul class="kv">${MANDATORY.map(row).join('')}</ul>
+      ${custom.length ? `<h3 class="sub-h">Your own posts</h3><ul class="kv">${custom.map(row).join('')}</ul>` : ''}
+      ${manage ? `<div class="row-btns"><button class="btn" data-act="add-post">${ic('plus')}Add your own post</button><span class="muted">Boards differ. Add Editor, PRO, Chief Whip or anything your club uses.</span></div>` : ''}
+    </section>`;
+  }
+
   U.view('people', () => {
-    const own = ['pres', 'sec', 'trs', 'mem'].includes(U.role());
+    const own = isOwn(), manage = U.can.roster(), grp = U.level() === 'group';
     const r = peopleRows();
     const chip = (v, l) => `<button class="chip${PF.role === v ? ' on' : ''}" data-act="people-f" data-v="${v}" aria-pressed="${PF.role === v}">${l}</button>`;
-    return `${head(own ? 'Club roster' : 'People', own ? 'Your members. Add them one by one or import the whole roster at once.' : `${num(D.memberCount)} Rotaractors across the district. Phone numbers and addresses stay private.`, own ? `<button class="btn" data-act="import">${ic('upload')}Import roster</button><button class="btn ink" data-act="add-member">${ic('plus')}Add member</button>` : '')}
+    const count = peopleList().length;
+    const title = own ? 'Club roster' : 'People';
+    const sub = own ? (manage ? 'Your members. Add them one by one or import the whole roster at once.' : 'Your club members. The president and secretary keep this list.')
+      : grp ? `${num(count)} Rotaractors in Group ${U.MY_GROUP}. Phone numbers and addresses stay private.` : `${num(D.memberCount)} Rotaractors across the district. Phone numbers and addresses stay private.`;
+    const act = manage ? `<button class="btn" data-act="import">${ic('upload')}Import roster</button><button class="btn ink" data-act="add-member">${ic('plus')}Add member</button>` : U.can.exportAll() ? `<button class="btn" data-act="export-data">${ic('upload')}Export district data</button>` : '';
+    return `${head(title, sub, act)}
+    ${own ? postsCard() : ''}
     <section class="card">
       <div class="filters">
-        <label class="search">${ic('search')}<span class="sr">Search people</span><input id="peopleQ" type="search" placeholder="Search name, club or ID" value="${esc(PF.q)}" data-on="people-q" autocomplete="off"></label>
+        <label class="search">${ic('search')}<span class="sr">Search people</span><input id="peopleQ" type="search" placeholder="${own ? 'Search name, post or ID' : 'Search name, club or ID'}" value="${esc(PF.q)}" data-on="people-q" autocomplete="off"></label>
         <div class="chips">${chip('', 'Everyone')}${chip('Board', 'Board')}${chip('President', 'Presidents')}${chip('Secretary', 'Secretaries')}</div>
       </div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Club</th><th>Role</th><th>ID</th><th class="r">Points</th><th>Phone</th></tr></thead><tbody id="peopleRows">${r.body}</tbody></table></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Club</th><th>Post</th><th>ID</th><th class="r">Points</th><th>Phone</th></tr></thead><tbody id="peopleRows">${r.body}</tbody></table></div>
       <div id="peoplePager">${r.pager}</div>
     </section>
-    <p class="note">Privacy levels: everyone sees name, club and post. District officials see phone and email. Only the member and the database team see address and date of birth. Blood group lives in an opt-in donor list.</p>`;
+    <p class="note">${own ? 'You see your own club only. District officials see every club and each group\'s officials see their group.' : 'Privacy levels: everyone sees name, club and post. District officials see phone and email. Only the member and the database team see address and date of birth. Blood group lives in an opt-in donor list.'}</p>`;
   });
 
   /* ---------- designations ---------- */
