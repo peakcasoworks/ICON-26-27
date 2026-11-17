@@ -45,9 +45,9 @@
     <section class="card">
       <div class="card-h"><h2>Clubs in ${g.name}, ${esc(e.name)}</h2><span class="muted fig">${left} of ${pool} seats left to give</span></div>
       <div class="prog"><span class="bt"><i style="--w:${pool ? (used / pool).toFixed(2) : 0}"></i></span><span class="fig">${used} of ${pool}</span></div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Club</th><th>Type</th><th>Seats</th>${e.fee ? '<th class="r">Fee for the club</th>' : ''}</tr></thead><tbody>${cs.map(c => {
-        const n = U.seatsOf(e, c);
-        return `<tr><td><b>${esc(c.name)}</b><small class="sub">${c.members} members</small></td><td>${c.type}</td><td>${canEdit ? stepper('seat-step', `data-c="${c.id}" data-g="${gid}"`, n, n > 0, left > 0) : `<b class="fig">${n}</b>`}</td>${e.fee ? `<td class="fig r">${inr(n * e.fee)}</td>` : ''}</tr>`;
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Club</th><th>Type</th><th>Seats</th><th class="r">Registered</th>${e.fee ? '<th class="r">Fee for the club</th>' : ''}</tr></thead><tbody>${cs.map(c => {
+        const n = U.seatsOf(e, c), rg = U.regOf(e, c), reg = rg ? Object.values(rg).filter(x => x.paid).length : null;
+        return `<tr><td><b>${esc(c.name)}</b><small class="sub">${c.members} members</small></td><td>${c.type}</td><td>${canEdit ? stepper('seat-step', `data-c="${c.id}" data-g="${gid}"`, n, n > 0, left > 0) : `<b class="fig">${n}</b>`}</td><td class="fig r">${reg == null ? '<span class="muted">not started</span>' : reg}</td>${e.fee ? `<td class="fig r">${inr((reg == null ? n : reg) * e.fee)}</td>` : ''}</tr>`;
       }).join('')}</tbody></table></div>
       ${canEdit ? '' : '<p class="note">Your group lead gives the seats.</p>'}
       <p class="note">${e.fee ? `${inr(e.fee)} a seat. ` : ''}The club sees its seats on the event page and the fee in its wallet. Nothing is typed twice.</p>

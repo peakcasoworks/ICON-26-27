@@ -82,7 +82,7 @@
   const VENUE = 'Chennai Trade Centre';
   const clock = () => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   const scans = id => ((P.scans = P.scans || {})[id] = P.scans[id] || []);
-  const FLAG = { qr: 'Code was 3 minutes old, like a screenshot', device: 'The same phone showed two passes', loc: 'Scanned away from the venue', typed: 'Typed in, not scanned', face: 'Face did not match the photo', borrowed: 'Shown on a new phone while the member\'s usual phone is somewhere else', over: 'More people present than this club has seats for', batch: 'Another scan by the same sergeant failed a spot check' };
+  const FLAG = { qr: 'Code was 3 minutes old, like a screenshot', device: 'The same phone showed two passes', loc: 'Scanned away from the venue', typed: 'Typed in, not scanned', face: 'Face did not match the photo', borrowed: 'Shown on a new phone while the member\'s usual phone is somewhere else', over: 'More people present than this club has seats for', batch: 'Another scan by the same sergeant failed a spot check', unreg: 'Not on the club\'s paid list for this event' };
   const ptsOf = x => x.status === 'ok' ? x.pts : 0;
   U.views_scan = () => {
     const evs = D.EVENTS.filter(e => e.status !== 'Done');
@@ -126,12 +126,15 @@
     const ev = D.EVENTS.find(x => x.id === SC.ev);
     const club = m.club, present = list.filter(x => x.club === club.id && x.status !== 'rejected').length;
     if (ev.quota && present >= U.seatsOf(ev, club)) flags.push('over');
+    const rg = U.regOf(ev, club);
+    if (rg && !(rg[m.id] && rg[m.id].paid)) flags.push('unreg');
     SC.pending = { m, method, flags, checks: [
       { ok: method === 'qr' && !flags.includes('qr'), t: method === 'typed' ? 'Typed in, no code was scanned' : flags.includes('qr') ? 'Code is 3 minutes old. A live code changes every 30 s' : 'Live code, fresh' },
       { ok: !flags.includes('loc'), t: flags.includes('loc') ? 'You are away from the venue' : `At ${VENUE}` },
       { ok: true, t: 'Member of ' + m.club.name },
       { ok: !flags.includes('device'), t: flags.includes('device') ? 'The same phone showed another pass a minute ago' : 'One phone, one pass' },
       { ok: !flags.includes('borrowed'), t: flags.includes('borrowed') ? 'New phone for this account. The usual phone was last seen in Tambaram, 22 km away' : 'The member\'s own registered phone' },
+      { ok: !flags.includes('unreg'), t: flags.includes('unreg') ? 'The club did not register or collect the fee for this member' : U.regOf(ev, club) ? 'On the club\'s paid list' : 'Club has not sent its paid list yet' },
       { ok: !flags.includes('over'), t: flags.includes('over') ? `${club.name} has ${U.seatsOf(ev, club)} seat${U.seatsOf(ev, club) === 1 ? '' : 's'} here and they are all taken` : ev.quota ? `Within the club's ${U.seatsOf(ev, club)} seats` : 'No seat limit for this event' }
     ] };
   }

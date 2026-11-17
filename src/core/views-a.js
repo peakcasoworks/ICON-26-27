@@ -226,20 +226,15 @@
 
   /* ---------- member pass ---------- */
   function passView() {
-    const club = cosmos(), m = D.memberOf(club, 7 % club.members), name = 'Kayal S.';
+    const club = cosmos(), who = U.passPerson();
     const hist = [['Blood Donation Megacamp', '2 Oct', 'On time', 50], ['JOSH District Culturals', '21 Sep', 'Within 15 minutes', 40], ['District Assembly', '10 Aug', 'On time', 50], ['District Orientation', '6 Jul', 'Within 30 minutes', 30]];
     const certs = [['District Assembly 2026', 'Participation'], ['Blood Donation Megacamp', 'Volunteer, 6 hours'], [club.name, 'Project chair, Notebook drive']];
     return `${head('My pass', 'Show this at district events. A sergeant scans it and your points land instantly.', `<button class="btn ink" data-act="pass-open">${ic('id')}Open full screen</button>`)}
     ${U.passNext()}
     <div class="grid-pass">
-      <section class="pass">
-        <div class="pass-top">${U.gear()}<div><b>${U.P.season === 'vibe' ? 'VIBE' : 'ICON'} 3233</b><small>Identity pass</small></div></div>
-        <div class="pass-qr">${U.qr(3233)}</div>
-        <div class="pass-who"><b>${name}</b><span>Rotaract Club of ${esc(club.name)}</span><span class="fig">${m.id}</span></div>
-        <p class="pass-note">Sample pass. Not scannable.</p>
-      </section>
+      ${U.passCard(false)}
       <div class="col">
-        <div class="stats two">${fig(170, 'Points this year')}${fig(3, 'Rank in your club', 'of ' + club.members + ' members')}</div>
+        <div class="stats two">${fig(who.points, 'Points this year')}${U.level() === 'club' ? fig(3, 'Rank in your club', 'of ' + club.members + ' members') : fig(U.level() === 'district' ? 1 : 2, 'Rank among officials')}</div>
         <section class="card">
           <div class="card-h"><h2>Check-ins</h2></div>
           <ul class="kv">${hist.map(h => `<li><span><b>${h[0]}</b><small class="sub">${h[1]}, ${h[2]}</small></span><b class="fig">+${h[3]}</b></li>`).join('')}</ul>

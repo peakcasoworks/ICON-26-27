@@ -181,7 +181,7 @@
     },
     cert(el) {
       const c = U.certs[Number(el.dataset.i)];
-      U.sheet(`<div class="cert"><div class="cert-in">${U.gear()}<small>Rotaract District 3233</small><h2>Certificate of ${c[1].startsWith('Participation') ? 'participation' : 'service'}</h2><p>Presented to</p><b class="cert-name">Kayal S.</b><p>${esc(c[1])}, ${esc(c[0])}</p><span class="stamp">Verified</span><div class="cert-sig"><span>District Rotaract Representative</span><span>District Rotaract Secretary</span></div></div></div><p class="note">Generated automatically from attendance and project logs. Sample only.</p>`, { wide: true });
+      U.sheet(`<div class="cert"><div class="cert-in">${U.gear()}<small>Rotaract District 3233</small><h2>Certificate of ${c[1].startsWith('Participation') ? 'participation' : 'service'}</h2><p>Presented to</p><b class="cert-name">${esc(U.passPerson().name)}</b><p>${esc(c[1])}, ${esc(c[0])}</p><span class="stamp">Verified</span><div class="cert-sig"><span>District Rotaract Representative</span><span>District Rotaract Secretary</span></div></div></div><p class="note">Generated automatically from attendance and project logs. Sample only.</p>`, { wide: true });
     },
 
     /* visits */

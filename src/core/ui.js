@@ -3,7 +3,7 @@
   const KEY = 'icon3233-demo-v1';
   let P = {};
   try { P = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { P = {}; }
-  const blank = () => ({ reports: {}, projects: {}, pay: {}, clubs: {}, newClubs: [], desig: [], inits: [], visits: {}, tasks: {}, gcol: {}, weights: null, nudged: {}, extraNotifs: [], alloc: {}, members: [], posts: {}, theme: 'auto', accent: 'default' });
+  const blank = () => ({ reports: {}, projects: {}, pay: {}, clubs: {}, newClubs: [], desig: [], inits: [], visits: {}, tasks: {}, gcol: {}, weights: null, nudged: {}, extraNotifs: [], alloc: {}, reg: {}, members: [], posts: {}, theme: 'auto', accent: 'default' });
   P = Object.assign(blank(), P);
   if (!P.motion) P.motion = 'on';
   const OS_CALM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -43,12 +43,15 @@
   const seatsOf = (e, c) => { const a = P.alloc[e.id]; return a && a.club[c.id] != null ? a.club[c.id] : e.quota || 0; };
   const poolOf = (e, g) => { const a = P.alloc[e.id]; return a && a.pool[g] != null ? a.pool[g] : activeClubs().filter(c => groupOf(c) === g).reduce((n, c) => n + (e.quota || 0), 0); };
   const spent = (e, g) => activeClubs().filter(c => groupOf(c) === g).reduce((n, c) => n + seatsOf(e, c), 0);
+  // What a club owes for an event follows who paid it: members pay the club, the club ticks them, and that count is the bill.
+  const regOf = (e, c) => P.reg && P.reg[e.id] && P.reg[e.id][c.id];
   const FEE_OF = { asm: 'assembly', ryla: 'ryla', conf: 'conf' };
   const wallet = c => D.walletFor(c).map(it => {
     const ev = FEE_OF[it.id.split('-').pop()] && D.EVENTS.find(e => e.id === FEE_OF[it.id.split('-').pop()]);
-    const base = ev && ev.fee ? Object.assign({}, it, { amount: seatsOf(ev, c) * ev.fee, detail: seatsOf(ev, c) + (seatsOf(ev, c) === 1 ? ' seat at ' : ' seats at ') + inr(ev.fee) }) : it;
+    const rg = ev && regOf(ev, c), n = rg ? Object.values(rg).filter(x => x.paid).length : ev ? seatsOf(ev, c) : 0;
+    const base = ev && ev.fee ? Object.assign({}, it, { amount: n * ev.fee, detail: n + (n === 1 ? (rg ? ' member paid, at ' : ' seat at ') : (rg ? ' members paid, at ' : ' seats at ')) + inr(ev.fee), skip: !!rg && n === 0 }) : it;
     return Object.assign({}, base, P.pay[it.id] || {});
-  });
+  }).filter(it => !it.skip);
   const gcolor = g => 'var(--sw' + (P.gcol[g] || g) + ')';
 
   const RS = {
@@ -71,11 +74,11 @@
     grs: { label: 'GRS', full: 'Group Rotaract Secretary', who: 'Your group', icon: 'doc', nav: ['home', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people'] },
     dir: { label: 'Director', full: 'Chairperson, Blood Donation', who: 'Every drop counts', icon: 'spark', nav: ['home', 'initiatives', 'events', 'clubs'] },
     chair: { label: 'RYLA Chair', full: 'RYLA Chairman', who: 'RYLA 2026', icon: 'flag', nav: ['home', 'events', 'clubs'] },
-    pres: { label: 'Club President', full: 'President, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'user', nav: ['home', 'monthly', 'wallet', 'drc', 'mom', 'visits', 'events', 'initiatives', 'people', 'pass'] },
-    vp: { label: 'Club Vice President', full: 'Vice President, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'user', nav: ['home', 'monthly', 'events', 'initiatives', 'people', 'pass'] },
-    sec: { label: 'Club Secretary', full: 'Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'drc', 'mom', 'events', 'people', 'pass'] },
+    pres: { label: 'Club President', full: 'President, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'user', nav: ['home', 'monthly', 'collect', 'wallet', 'drc', 'mom', 'visits', 'events', 'initiatives', 'people', 'pass'] },
+    vp: { label: 'Club Vice President', full: 'Vice President, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'user', nav: ['home', 'monthly', 'collect', 'events', 'initiatives', 'people', 'pass'] },
+    sec: { label: 'Club Secretary', full: 'Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'collect', 'drc', 'mom', 'events', 'people', 'pass'] },
     jsec: { label: 'Joint Secretary', full: 'Joint Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'events', 'people', 'pass'] },
-    trs: { label: 'Club Treasurer', full: 'Treasurer, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'rupee', nav: ['home', 'events', 'people', 'pass'] },
+    trs: { label: 'Club Treasurer', full: 'Treasurer, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'rupee', nav: ['home', 'collect', 'events', 'people', 'pass'] },
     dsgt: { label: 'District Sergeant-at-Arms', full: 'Chief Sergeant-at-Arms, District', who: 'District events', icon: 'badge', nav: ['home', 'review', 'events'] },
     mem: { label: 'Member', full: 'Member, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'id', nav: ['home', 'events', 'initiatives', 'awards'] }
   };
@@ -83,9 +86,9 @@
     home: ['Home', 'home'], reports: ['Reports', 'doc'], clubs: ['Clubs', 'building'], groups: ['Groups', 'layers'], events: ['Events', 'flag'],
     finance: ['Finance', 'rupee'], initiatives: ['Initiatives', 'spark'], awards: ['Scorecard', 'trophy'], designations: ['Designations', 'badge'],
     people: ['People', 'users'], visits: ['DRR visits', 'calendar'], season: ['Season', 'sun'], log: ['Log project', 'plus'],
-    monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id'], seats: ['Seat allotment', 'id'], drc: ['DRC bookings', 'calendar'], mom: ['Minutes', 'doc'], review: ['Attendance review', 'badge']
+    monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id'], seats: ['Seat allotment', 'id'], drc: ['DRC bookings', 'calendar'], mom: ['Minutes', 'doc'], review: ['Attendance review', 'badge'], collect: ['Event fees', 'rupee']
   };
-  const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'My group', grs: 'My group', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', dtrs: 'Club wallet', mem: 'My pass' };
+  const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'My group', grs: 'My group', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', trs: 'Club wallet', dsgt: 'Scan at the door', mem: 'My pass' };
   // The pass sits right after Home for everyone: it is the thing people need first at a door.
   Object.values(ROLES).forEach(r => { if (r.nav.includes('home') && !(r === ROLES.mem)) { r.nav = r.nav.filter(x => x !== 'pass'); r.nav.splice(1, 0, 'pass'); } });
   const role = () => P.role;
@@ -185,7 +188,7 @@
       grr: [[`3 clubs in Group ${myGroup()} have not started October.`, 'home'], ['Madras Cosmos report is waiting for your check.', 'reports']],
       dir: [['Chennai Velachery logged 42 units.', 'home'], ['Every drop counts crossed 1,400 units.', 'home']],
       chair: [['Backstage committee has 3 open tasks.', 'home'], ['117 of 180 RYLA seats are filled.', 'home']],
-      pres: [['Book your club\'s slot for the DRC on 7 Dec.', 'drc'], ['October report is late. You or your secretary can send it.', 'monthly'], ['Book your DRR official visit before 20 Dec.', 'visits'], ['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'wallet']],
+      pres: [['Collect the RYLA fee from your members and tick who paid.', 'collect'], ['Book your club\'s slot for the DRC on 7 Dec.', 'drc'], ['October report is late. You or your secretary can send it.', 'monthly'], ['Book your DRR official visit before 20 Dec.', 'visits'], ['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'wallet']],
       sec: [['October report is late. You or your president can send it.', 'monthly'], ['November: 2 projects logged, 3 steps left.', 'monthly'], ['Report for November is due on 5 Dec.', 'monthly']],
       trs: [['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'home'], ['Conference delegate fee opens on 1 Dec.', 'home']],
       gco: [['Group 3 has 2 clubs without a GRS check this week.', 'groups'], ['RYLA seat pools are open for the GRRs to spread.', 'seats']],
@@ -467,5 +470,5 @@
   const skeletonRows = (n, cols) => Array.from({ length: n }, () => `<tr class="sk-row">${Array.from({ length: cols }, () => '<td><span class="sk"></span></td>').join('')}</tr>`).join('');
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-  window.UI = { gearPath, P, save, blank, KEY, calm, OS_CALM, SCOPE, level, myClub, get MY_GROUP() { return myGroup(); }, demoClubs, canSeeClub, canSeePerson, visibleClubs, roleInfo, can, download, seatEvents, seatsOf, poolOf, spent, get RM() { return calm(); }, $, $$, esc, num, inr, ic, pct, clubs, club, stateOf, groupOf, activeClubs, report, setReport, projects, wallet, gcolor, RS, PAY, pill, rpill, ppill, gpill, ROLES, NAV, HOME_NAME, role, R, view, go, render, cur: () => cur, setCur: c => { cur = c; }, notifs, sheet, closeSheet, toast, confetti, after, gear, skyline, scene, auto, coffee, mapSVG, ring, spark, bar, tracker, qr, pager, skeletonRows, debounce };
+  window.UI = { gearPath, P, save, blank, KEY, calm, OS_CALM, SCOPE, level, myClub, get MY_GROUP() { return myGroup(); }, demoClubs, canSeeClub, canSeePerson, visibleClubs, roleInfo, can, download, seatEvents, seatsOf, regOf, poolOf, spent, get RM() { return calm(); }, $, $$, esc, num, inr, ic, pct, clubs, club, stateOf, groupOf, activeClubs, report, setReport, projects, wallet, gcolor, RS, PAY, pill, rpill, ppill, gpill, ROLES, NAV, HOME_NAME, role, R, view, go, render, cur: () => cur, setCur: c => { cur = c; }, notifs, sheet, closeSheet, toast, confetti, after, gear, skyline, scene, auto, coffee, mapSVG, ring, spark, bar, tracker, qr, pager, skeletonRows, debounce };
 })();
