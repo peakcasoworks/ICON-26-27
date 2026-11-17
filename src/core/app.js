@@ -329,6 +329,14 @@
   /* ---------- loader: sparks gather into the gear, the gear rises over Chennai ---------- */
   const loader = done => window.MO.loader(done);
 
+  /* Tables become stacked cards on phones: each cell carries its column name, and the CSS shows it. */
+  const labelTables = () => $$('table.tbl').forEach(t => {
+    const hs = Array.from(t.querySelectorAll('thead th')).map(h => (h.querySelector('.sr') ? '' : h.textContent.trim()));
+    t.querySelectorAll('tbody tr').forEach(r => Array.from(r.children).forEach((td, i) => { if (td.tagName === 'TD' && hs[i] != null && td.dataset.l !== hs[i]) td.dataset.l = hs[i]; }));
+  });
+  let lt = 0;
+  new MutationObserver(() => { cancelAnimationFrame(lt); lt = requestAnimationFrame(labelTables); }).observe(document.body, { childList: true, subtree: true });
+
   /* ---------- boot ---------- */
   document.documentElement.dataset.season = P.season || 'icon';
   const paintMotion = () => { document.documentElement.dataset.motion = P.motion; const b = $('#motionBtn'); if (b) { b.setAttribute('aria-pressed', P.motion === 'on'); b.title = P.motion === 'on' ? 'Animations on' : 'Animations off'; } };
