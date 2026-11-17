@@ -866,3 +866,4 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .v-body { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 6px; }
 .v-checks { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 4px; font-size: 0.86rem; } .v-checks li { display: flex; gap: 8px; align-items: center; } .v-checks .ok { color: var(--ok); } .v-checks .bad { color: var(--warn); font-weight: 600; }
 .warn-t { color: var(--warn) !important; }
+.faces { display: inline-flex; gap: 4px; margin-right: 8px; vertical-align: middle; } .fc { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font: 700 0.8rem var(--font-display); } .fc.diff { background: var(--bad-soft); color: var(--bad); }
