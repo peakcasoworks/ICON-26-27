@@ -21,13 +21,13 @@
   }).join('')}</div>`;
 
   /* ---------- role picker ---------- */
-  const ORDER = [['District', ['drr', 'drs', 'dt', 'gco', 'dsgt']], ['Group and portfolio', ['grr', 'grs', 'dir', 'chair']], ['Club', ['pres', 'vp', 'sec', 'jsec', 'trs', 'sgt', 'mem']]];
+  const ORDER = [['District', ['drr', 'drs', 'dt', 'gco', 'dsgt']], ['Group and portfolio', ['grr', 'grs', 'dir', 'chair']], ['Club', ['pres', 'vp', 'sec', 'jsec', 'trs', 'mem']]];
   const ROLE_NOTE = {
     drr: 'Command centre, approvals, season setup', drs: 'Review every monthly report', dt: 'Dues, event fees, payment checks',
     grr: 'Chase and check the clubs of your own group', dir: 'Run a district initiative', chair: 'Committees and tasks for RYLA',
     gco: 'Every GRR and GRS, club moves, seats', grs: 'Check your own group\'s reports with the GRR',
     pres: 'Send reports, add members, book the DRR visit', vp: 'See reports, roster and events', sec: 'Log projects, send the report, keep the roster', jsec: 'Log projects and help send the report',
-    trs: 'Pay dues and event fees in one go', sgt: 'Scan members in at events', dsgt: 'Scan members in at district events', mem: 'Pass, points, certificates'
+    trs: 'Pay dues and event fees in one go', dsgt: 'Scan members in at district events', mem: 'Pass, points, certificates'
   };
   const letters = w => w.split('').map((ch, i) => `<span class="ltr" style="--i:${i}">${ch}</span>`).join('');
   U.view('roles', () => `
@@ -59,7 +59,7 @@
     if (r === 'grr' || r === 'grs') return groupHome(U.MY_GROUP, true);
     if (r === 'dir') return U.views_initiative('blood', true);
     if (r === 'chair') return U.views_workspace('ryla');
-    if (r === 'sgt' || r === 'dsgt') return U.views_scan();
+    if (r === 'dsgt') return U.views_scan();
     if (['pres', 'sec', 'vp', 'jsec'].includes(r)) return clubHome();
     if (r === 'trs') return U.views_wallet();
     return passView();
@@ -193,7 +193,7 @@
     const evs = D.EVENTS.filter(e => e.status !== 'Done').slice(0, 3);
     const octAction = U.can.sendReport() && ['draft', 'none', 'returned'].includes(oct.status) ? `<button class="btn ink" data-go="monthly" data-arg="3">${ic('send')}Finish and send October</button>` : '';
     return `<div class="g-band" style="--g:${U.gcolor(c.group)}"><span>Rotaract Club of ${esc(c.name)}</span><small>Group ${U.groupOf(c)}, ${c.type.toLowerCase()} club since ${c.chartered}, ${c.members} members</small></div>
-    ${head('Club home', r === 'pres' ? 'Send reports, keep fees clear and book your DRR visit.' : r === 'sgt' ? 'Scan your members in at district events.' : 'Log each project the day it happens. The monthly report then builds itself.', `<button class="btn ink" data-go="log">${ic('plus')}Log a project</button>`)}
+    ${head('Club home', r === 'pres' ? 'Send reports, keep fees clear and book your DRR visit.' : 'Log each project the day it happens. The monthly report then builds itself.', `<button class="btn ink" data-go="log">${ic('plus')}Log a project</button>`)}
     ${U.passStrip()}
     <div class="grid-club">
       <section class="card hero-card">

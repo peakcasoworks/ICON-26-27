@@ -77,7 +77,6 @@
     jsec: { label: 'Joint Secretary', full: 'Joint Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'events', 'people', 'pass'] },
     trs: { label: 'Club Treasurer', full: 'Treasurer, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'rupee', nav: ['home', 'events', 'people', 'pass'] },
     dsgt: { label: 'District Sergeant-at-Arms', full: 'Chief Sergeant-at-Arms, District', who: 'District events', icon: 'badge', nav: ['home', 'review', 'events'] },
-    sgt: { label: 'Sergeant-at-Arms', full: 'Sergeant-at-Arms, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'badge', nav: ['home', 'events', 'people', 'pass'] },
     mem: { label: 'Member', full: 'Member, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'id', nav: ['home', 'events', 'initiatives', 'awards'] }
   };
   const NAV = {
@@ -86,7 +85,7 @@
     people: ['People', 'users'], visits: ['DRR visits', 'calendar'], season: ['Season', 'sun'], log: ['Log project', 'plus'],
     monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id'], seats: ['Seat allotment', 'id'], drc: ['DRC bookings', 'calendar'], mom: ['Minutes', 'doc'], review: ['Attendance review', 'badge']
   };
-  const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'My group', grs: 'My group', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', sgt: 'Scan at the door', dsgt: 'Scan at the door', trs: 'Club wallet', mem: 'My pass' };
+  const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'My group', grs: 'My group', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', dtrs: 'Club wallet', mem: 'My pass' };
   // The pass sits right after Home for everyone: it is the thing people need first at a door.
   Object.values(ROLES).forEach(r => { if (r.nav.includes('home') && !(r === ROLES.mem)) { r.nav = r.nav.filter(x => x !== 'pass'); r.nav.splice(1, 0, 'pass'); } });
   const role = () => P.role;
@@ -94,7 +93,7 @@
   /* ---------- who sees what ---------- */
   // district: every club and person. group: the clubs and people of one group. portfolio: clubs and events, no member lists.
   // club: that club only. Search, the people list, the clubs list and every club page follow this one rule.
-  const SCOPE = { drr: 'district', drs: 'district', dt: 'district', gco: 'district', grr: 'group', grs: 'group', dir: 'portfolio', chair: 'portfolio', pres: 'club', vp: 'club', sec: 'club', jsec: 'club', trs: 'club', sgt: 'club', mem: 'club', dsgt: 'portfolio' };
+  const SCOPE = { drr: 'district', drs: 'district', dt: 'district', gco: 'district', grr: 'group', grs: 'group', dir: 'portfolio', chair: 'portfolio', pres: 'club', vp: 'club', sec: 'club', jsec: 'club', trs: 'club', mem: 'club', dsgt: 'portfolio' };
   // A GRR or GRS belongs to one group, and that comes from their login. The demo lets you pick which one to try.
   const myGroup = () => P.myGroup || 6;
   const level = () => SCOPE[P.role] || 'none';
@@ -193,7 +192,6 @@
       grs: [['Madras Cosmos report is waiting for your check.', 'reports'], ['RYLA seats for your group are ready to assign.', 'seats']],
       vp: [['October report is late. The president or secretary can send it.', 'monthly']],
       jsec: [['November: 2 projects logged, 3 steps left.', 'monthly']],
-      sgt: [['Next event: DRC in December. You scan your club at the door.', 'events']],
       mem: [['You earned 50 points at the Blood Donation Megacamp.', 'home'], ['RYLA registration is open.', 'events']]
     }[P.role] || [];
     return P.extraNotifs.filter(n => n.role === P.role).map(n => ({ t: n.t, go: n.go, unread: true })).concat(base.map((b, i) => ({ t: b[0], go: b[1], unread: i < 2 })));

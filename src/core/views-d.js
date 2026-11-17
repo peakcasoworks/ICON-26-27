@@ -28,7 +28,7 @@
   U.view('event', arg => {
     const e = D.EVENTS.find(x => x.id === arg) || D.EVENTS[6];
     const rl = U.role();
-    const isClub = ['pres', 'sec', 'trs', 'vp', 'jsec', 'sgt'].includes(rl);
+    const isClub = ['pres', 'sec', 'trs', 'vp', 'jsec'].includes(rl);
     const mine = U.myClub(), seats = e.quota ? U.seatsOf(e, mine) : 0;
     const site = (P.site && P.site[e.id]) || e.site;
     const done = e.status === 'Done';

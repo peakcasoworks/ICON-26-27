@@ -76,36 +76,31 @@
   U.passCard = passCard;
 
   /* ---------- the sergeant's scan desk ---------- */
-  // Why club sergeants scan: with 4,000 people at the door one desk cannot keep up, so each club scans its own people in its own
-  // lane and sends the list up. The risk is a stand-in: someone logs into an absent member's account and is marked present.
-  // The desk closes that with six checks: live code, face check, own club only, venue location and time, one phone one pass,
-  // and a district review of anything odd (points wait until it is cleared).
+  // Only district sergeants scan, at doors the district runs. A club cannot mark its own members present. The desk still
+  // keeps the live code, the face check, the time and place stamp, and the district review of anything odd.
   const SC = { ev: null, last: null, n: 0, pending: null, away: false };
   const VENUE = 'Chennai Trade Centre';
   const clock = () => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-  const isClubScanner = () => U.role() === 'sgt';
   const scans = id => ((P.scans = P.scans || {})[id] = P.scans[id] || []);
-  const pool = () => isClubScanner() ? U.rosterOf(U.myClub()).filter(m => !m.added) : null;
   const FLAG = { qr: 'Code was 3 minutes old, like a screenshot', device: 'The same phone showed two passes', loc: 'Scanned away from the venue', typed: 'Typed in, not scanned', face: 'Face did not match the photo', borrowed: 'Shown on a new phone while the member\'s usual phone is somewhere else', over: 'More people present than this club has seats for', batch: 'Another scan by the same sergeant failed a spot check' };
   const ptsOf = x => x.status === 'ok' ? x.pts : 0;
   U.views_scan = () => {
     const evs = D.EVENTS.filter(e => e.status !== 'Done');
     const e = evs.find(x => x.id === SC.ev) || evs[0]; SC.ev = e.id;
     const list = scans(e.id), ok = list.filter(x => x.status === 'ok'), hold = list.filter(x => x.status === 'review'), pend = SC.pending, last = SC.last;
-    const me = isClubScanner() ? U.myClub() : null;
     const verify = pend ? `<div class="verify"><div class="v-face" aria-label="Photo on file"><span>${esc(pend.m.name.split(' ').map(x => x[0]).join(''))}</span><small>Photo on file</small></div>
       <div class="v-body"><b>${esc(pend.m.name)}</b><small>${esc(pend.m.club.name)}, ${esc(pend.m.id)}</small>
       <ul class="v-checks">${pend.checks.map(c => `<li class="${c.ok ? 'ok' : 'bad'}">${ic(c.ok ? 'check' : 'alert')}<span>${esc(c.t)}</span></li>`).join('')}</ul>
       <p class="note">Look at the person in front of you. Is it the face in the photo?</p>
       <div class="row-btns"><button class="btn ink" data-act="scan-yes">${ic('check')}It is them, check in</button><button class="btn" data-act="scan-no">Not them</button></div></div></div>` : '';
-    return `${head('Scan at the door', isClubScanner() ? `You scan the members of ${esc(me.name)} only. Each scan is stamped with the time, the place and you, and goes to the district.` : 'Scan any club\'s members, check the club desks, and clear anything flagged.', isClubScanner() ? '' : `<button class="btn" data-go="review">${ic('badge')}Attendance review</button>`)}
+    return `${head('Scan at the door', 'Scan any club\'s members at the district\'s doors, and clear anything flagged. Each scan is stamped with the time, the place and you.', `<button class="btn" data-go="review">${ic('badge')}Attendance review</button>`)}
     <div class="chips" aria-label="Event">${evs.map(x => `<button class="chip${x.id === e.id ? ' on' : ''}" data-act="scan-ev" data-v="${x.id}" aria-pressed="${x.id === e.id}">${esc(x.name)}</button>`).join('')}</div>
     <div class="stats">${U.fig(ok.length, 'Checked in')}${U.fig(hold.length, 'Held for district review', 'Points wait until cleared')}${U.fig(new Set(ok.map(x => x.club)).size, 'Clubs present')}${U.fig(ok.reduce((a, x) => a + x.pts, 0), 'Points given')}</div>
     <div class="grid-2">
       <section class="card scan-card"><div class="card-h"><h2>Scan</h2><span class="muted">${esc(e.name)}, ${esc(e.date)}</span></div>
         <div class="station ${SC.away ? 'away' : ''}">${ic('flag')}<span><b>${SC.away ? 'Away from the venue' : esc(VENUE)}</b><small>${SC.away ? 'Scans from here are flagged' : 'Within 60 m of the venue gate'}, clock ${clock()}</small></span><label class="demo-sw"><input type="checkbox" class="sw" data-on="scan-away" ${SC.away ? 'checked' : ''}><span>Demo: I am away</span></label></div>
         ${pend ? verify : `<button class="btn ink scan-btn" data-act="scan-next">${ic('id')}Scan next pass</button>
-        <p class="note">On a phone this opens the camera. In this demo it shows the next member${isClubScanner() ? ' of your club' : ''}.</p>
+        <p class="note">On a phone this opens the camera. In this demo it shows the next member.</p>
         <button class="btn sm" data-act="scan-borrow">Demo: scan a borrowed phone</button>
         <form data-form="scan-id" class="form scan-id"><label class="field" for="scId"><span>QR not working? Type the number on the pass</span><input id="scId" name="id" placeholder="R3233007" autocomplete="off"></label><button class="btn" type="submit">Look up</button></form>`}
         ${last && !pend ? `<div class="scan-res ${last.kind}" role="status">${ic(last.kind === 'ok' ? 'check' : 'alert')}<div><b>${esc(last.title)}</b><small>${esc(last.sub)}</small></div></div>` : ''}
@@ -114,15 +109,14 @@
         <ul class="kv scan-list">${list.slice(-8).reverse().map(x => `<li><span><b>${esc(x.name)}</b><small class="sub">${esc(x.clubName)}, ${esc(x.time)}, by ${esc(x.by)}</small>${x.flags.length ? `<small class="sub warn-t">${esc(x.flags.map(f => FLAG[f]).join('. '))}</small>` : ''}</span>${x.status === 'ok' ? `<b class="fig">+${x.pts}</b>` : U.pill(x.status === 'review' ? 'Held' : 'Rejected', x.status === 'review' ? 'warn' : 'bad')}</li>`).join('') || '<li><span class="muted">Nobody yet. The first scan shows up here.</span></li>'}</ul>
         ${list.length ? `<div class="row-btns"><button class="btn sm" data-act="scan-export">${ic('upload')}Send list to the district</button></div>` : ''}</section>
     </div>
-    <section class="card"><div class="card-h"><h2>How a stand-in is stopped</h2><span class="muted">Seven checks on every check-in</span></div>
-      <ol class="ladder"><li><b>1</b><span>The code on the pass changes every 30 seconds. A screenshot or a forwarded picture is dead at the door.</span></li><li><b>2</b><span>You compare the face with the photo on file. Logging into a friend's account does not change the face.</span></li><li><b>3</b><span>A club sergeant can scan only that club's members. Nobody can mark another club present.</span></li><li><b>4</b><span>Every scan is stamped with time, place and the sergeant. Away from the venue or outside the event hours is flagged.</span></li><li><b>5</b><span>One phone showing two passes is flagged, and a typed number is flagged.</span></li><li><b>6</b><span>Flagged scans wait with the district. Their points are held until the DRS or the District Sergeant clears them. A few clean scans are re-checked at random.</span></li><li><b>7</b><span>The sergeant is not the only check. A pass opened on a new phone while the member's usual phone is far away, more people than the club's seats, and a photo taken at every scan are all flagged even if the sergeant taps yes. A failed spot check holds all of that sergeant's scans.</span></li></ol></section>`;
+    <section class="card"><div class="card-h"><h2>How a stand-in is stopped</h2><span class="muted">Checks on every check-in</span></div>
+      <ol class="ladder"><li><b>1</b><span>The code on the pass changes every 30 seconds. A screenshot or a forwarded picture is dead at the door.</span></li><li><b>2</b><span>You compare the face with the photo on file. Logging into a friend's account does not change the face.</span></li><li><b>3</b><span>Only district sergeants scan, at doors the district runs. A club cannot mark its own members present.</span></li><li><b>4</b><span>Every scan is stamped with time, place and the sergeant. Away from the venue or outside the event hours is flagged.</span></li><li><b>5</b><span>One phone showing two passes is flagged, and a typed number is flagged.</span></li><li><b>6</b><span>Flagged scans wait with the district. Their points are held until the DRS or the District Sergeant clears them. A few clean scans are re-checked at random.</span></li><li><b>7</b><span>The sergeant is not the only check. A pass opened on a new phone while the member's usual phone is far away, more people than the club's seats, and a photo taken at every scan are all flagged even if the sergeant taps yes. A failed spot check holds all of that sergeant's scans.</span></li></ol></section>`;
   };
   U.view('scan', () => U.views_scan());
   const tier = n => n < 6 ? ['On time', 50] : n < 14 ? ['Within 15 minutes', 40] : ['Within 30 minutes', 30];
   function start(m, method, opts) {
     const e = D.EVENTS.find(x => x.id === SC.ev), list = scans(e.id);
     if (list.some(x => x.id === m.id && x.status !== 'rejected')) { SC.last = { kind: 'dup', title: `${m.name} is already checked in`, sub: `${m.id}. No points added twice.` }; return; }
-    if (isClubScanner() && m.club.id !== U.myClub().id) { SC.last = { kind: 'bad', title: `${m.name} is not in ${U.myClub().name}`, sub: `They belong to ${m.club.name}. Send them to their own club's desk or the district desk.` }; return; }
     const n = SC.n++, flags = [];
     if (SC.away) flags.push('loc');
     if (method === 'qr' && n % 7 === 3) flags.push('qr');
@@ -135,7 +129,7 @@
     SC.pending = { m, method, flags, checks: [
       { ok: method === 'qr' && !flags.includes('qr'), t: method === 'typed' ? 'Typed in, no code was scanned' : flags.includes('qr') ? 'Code is 3 minutes old. A live code changes every 30 s' : 'Live code, fresh' },
       { ok: !flags.includes('loc'), t: flags.includes('loc') ? 'You are away from the venue' : `At ${VENUE}` },
-      { ok: true, t: isClubScanner() ? 'Member of your club' : 'Member of ' + m.club.name },
+      { ok: true, t: 'Member of ' + m.club.name },
       { ok: !flags.includes('device'), t: flags.includes('device') ? 'The same phone showed another pass a minute ago' : 'One phone, one pass' },
       { ok: !flags.includes('borrowed'), t: flags.includes('borrowed') ? 'New phone for this account. The usual phone was last seen in Tambaram, 22 km away' : 'The member\'s own registered phone' },
       { ok: !flags.includes('over'), t: flags.includes('over') ? `${club.name} has ${U.seatsOf(ev, club)} seat${U.seatsOf(ev, club) === 1 ? '' : 's'} here and they are all taken` : ev.quota ? `Within the club's ${U.seatsOf(ev, club)} seats` : 'No seat limit for this event' }
@@ -146,17 +140,17 @@
     const [label, pts] = tier(list.filter(x => x.status === 'ok').length);
     const flags = pd.flags.concat(extra || []);
     const st = status === 'rejected' ? 'rejected' : flags.length ? 'review' : 'ok';
-    list.push({ id: pd.m.id, name: pd.m.name, club: pd.m.club.id, clubName: pd.m.club.name, label, pts, time: clock(), by: isClubScanner() ? 'Sergeant, ' + U.myClub().name : 'District Sergeant', where: SC.away ? 'Away' : VENUE, method: pd.method, flags, status: st, event: e.id, photo: true, mismatch: flags.some(f => ['borrowed', 'face', 'device'].includes(f)) });
+    list.push({ id: pd.m.id, name: pd.m.name, club: pd.m.club.id, clubName: pd.m.club.name, label, pts, time: clock(), by: 'District Sergeant', where: SC.away ? 'Away' : VENUE, method: pd.method, flags, status: st, event: e.id, photo: true, mismatch: flags.some(f => ['borrowed', 'face', 'device'].includes(f)) });
     SC.last = st === 'ok' ? { kind: 'ok', title: `${pd.m.name} checked in, +${pts}`, sub: `${pd.m.club.name}, ${label}` } : st === 'review' ? { kind: 'dup', title: `${pd.m.name} is held for review`, sub: 'Flagged: ' + flags.map(f => FLAG[f]).join('. ') + '. Your tap does not release the points. They wait for the district.' } : { kind: 'bad', title: `${pd.m.name} was not checked in`, sub: 'Reported to the district as a possible stand-in.' };
     SC.pending = null; save();
   }
   A['scan-ev'] = el => { SC.ev = el.dataset.v; SC.last = null; SC.pending = null; U.rerender(); };
   A['scan-next'] = () => {
-    const mine = pool(); let m, tries = 0; const e = D.EVENTS.find(x => x.id === SC.ev);
-    do { m = mine ? mine[(SC.n * 5 + tries) % mine.length] : D.member((SC.n * 137 + 11 + tries) % D.memberCount); tries++; } while (tries < 60 && scans(e.id).some(x => x.id === m.id));
+    let m, tries = 0; const e = D.EVENTS.find(x => x.id === SC.ev);
+    do { m = D.member((SC.n * 137 + 11 + tries) % D.memberCount); tries++; } while (tries < 60 && scans(e.id).some(x => x.id === m.id));
     start(m, 'qr'); U.rerender();
   };
-  A['scan-borrow'] = () => { const mine = pool(); const e = D.EVENTS.find(x => x.id === SC.ev); let m, t = 0; do { m = mine ? mine[(SC.n * 3 + 1 + t) % mine.length] : D.member((SC.n * 53 + 7 + t) % D.memberCount); t++; } while (t < 60 && scans(e.id).some(x => x.id === m.id)); start(m, 'qr', { borrowed: true }); U.rerender(); };
+  A['scan-borrow'] = () => { const e = D.EVENTS.find(x => x.id === SC.ev); let m, t = 0; do { m = D.member((SC.n * 53 + 7 + t) % D.memberCount); t++; } while (t < 60 && scans(e.id).some(x => x.id === m.id)); start(m, 'qr', { borrowed: true }); U.rerender(); };
   F['scan-id'] = f => {
     const raw = (new FormData(f).get('id') || '').trim().toUpperCase().replace(/\s/g, '');
     const n = Number(raw.replace(/\D/g, '')) - 3233000;
