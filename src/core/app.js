@@ -334,6 +334,7 @@
   const paintMotion = () => { document.documentElement.dataset.motion = P.motion; const b = $('#motionBtn'); if (b) { b.setAttribute('aria-pressed', P.motion === 'on'); b.title = P.motion === 'on' ? 'Animations on' : 'Animations off'; } };
   paintMotion();
   U.applyTheme();
+  $('#passBtn').addEventListener('click', () => A['pass-open']());
   $('#themeBtn').addEventListener('click', () => A.colours());
   $('#motionBtn').addEventListener('click', () => { P.motion = P.motion === 'on' ? 'off' : 'on'; save(); paintMotion(); U.toast(P.motion === 'on' ? 'Animations on' : 'Animations off', 'info'); });
   $('#searchBtn').addEventListener('click', () => window.MO.openSearch());

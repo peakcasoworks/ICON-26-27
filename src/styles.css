@@ -838,3 +838,20 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 @media print { .side, .top, .tabbar, .demo-bar, .ph-act, #sheet, .toast, #toast { display: none !important; } .main { margin: 0 !important; } }
 .demo-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 14px; padding: 10px 14px; border: 1px dashed var(--rule-2); border-radius: var(--r-ctl); font-size: 0.88rem; color: var(--ink-2); }
 .demo-pick > b { padding: 2px 8px; border-radius: var(--r-pill); background: var(--gold-soft); color: var(--gold-ink); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* pass, scan desk */
+.qr .q { fill: #111 !important; } .qr .q-bg { fill: #fff !important; }
+.pass-qr { background: #fff !important; }
+.pass.big { max-width: 420px; margin-inline: auto; } .pass.big .pass-qr { width: min(300px, 100%); }
+.pass-id { text-align: center; font-size: 1.5rem; letter-spacing: 0.08em; }
+.pass-sheet { display: flex; flex-direction: column; gap: 12px; }
+.tips { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 0.88rem; color: var(--ink-2); } .tips li { display: flex; gap: 8px; } .tips .ic { color: var(--ok); flex: none; margin-top: 2px; }
+.pass-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 0; border-radius: var(--r-pill); background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600; font-size: 0.88rem; cursor: pointer; }
+.pass-pill .ic { width: 18px; height: 18px; } .pass-pill:hover { background: var(--accent-2); }
+@media (max-width: 40rem) { .pass-pill span { display: none; } .pass-pill { padding: 9px; } }
+.pass-strip { flex-direction: row !important; text-align: left; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin-bottom: 14px; }
+.ps-t { display: flex; flex-direction: column; } .ps-n { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+.scan-btn { width: 100%; min-height: 64px; font-size: 1.15rem; justify-content: center; }
+.scan-id { display: flex; align-items: flex-end; gap: 10px; margin-top: 10px; } .scan-id .field { flex: 1; }
+.scan-res { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 12px 14px; border-radius: var(--r-ctl); }
+.scan-res small { display: block; opacity: 0.8; } .scan-res.ok { background: var(--ok-soft); color: var(--ok); } .scan-res.dup { background: var(--warn-soft); color: var(--warn); } .scan-res.bad { background: var(--bad-soft); color: var(--bad); }

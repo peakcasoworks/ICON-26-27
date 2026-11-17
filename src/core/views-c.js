@@ -34,7 +34,7 @@
       { k: 'meetings', t: 'Meetings and attendance', done: !!d.meetings },
       { k: 'members', t: 'Membership changes', done: d.joins != null },
       { k: 'fees', t: fees ? 'No overdue fees' : 'Clear overdue fees', done: fees },
-      { k: 'submit', t: 'Send to president', done: !['none', 'draft', 'returned'].includes(r.status) }
+      { k: 'submit', t: 'Send to GRS', done: !['none', 'draft', 'returned'].includes(r.status) }
     ];
   };
 
