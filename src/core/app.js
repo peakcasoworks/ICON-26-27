@@ -344,7 +344,7 @@
   U.applyTheme();
   $('#passBtn').addEventListener('click', () => A['pass-open']());
   $('#themeBtn').addEventListener('click', () => A.colours());
-  $('#motionBtn').addEventListener('click', () => { P.motion = P.motion === 'on' ? 'off' : 'on'; save(); paintMotion(); U.toast(P.motion === 'on' ? 'Animations on' : 'Animations off', 'info'); });
+  $('#motionBtn').addEventListener('click', () => { P.motion = P.motion === 'on' ? 'off' : 'on'; save(); paintMotion(); window.MO.heroMotion(); U.toast(P.motion === 'on' ? 'Animations on' : 'Animations off', 'info'); });
   $('#searchBtn').addEventListener('click', () => window.MO.openSearch());
   if (U.OS_CALM && !P.motionNoted) { P.motionNoted = true; save(); setTimeout(() => U.toast('Your device asks for less motion. Animations stay on here. Use the sparkle button to turn them off.', 'info'), 4200); }
   if (!P.season) P.season = 'icon';

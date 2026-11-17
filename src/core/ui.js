@@ -74,22 +74,22 @@
     gco: { label: 'Group Coordinator', full: 'Group Coordinator, all seven groups', who: 'All groups', icon: 'layers', nav: ['home', 'groups', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people', 'initiatives'] },
     grr: { label: 'GRR', full: 'Group Rotaract Representative', who: 'Your group', icon: 'layers', nav: ['home', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people', 'initiatives'] },
     grs: { label: 'GRS', full: 'Group Rotaract Secretary', who: 'Your group', icon: 'doc', nav: ['home', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people'] },
-    dir: { label: 'Director', full: 'Chairperson, Blood Donation', who: 'Every drop counts', icon: 'spark', nav: ['home', 'initiatives', 'events', 'clubs'] },
-    chair: { label: 'RYLA Chair', full: 'RYLA Chairman', who: 'RYLA 2026', icon: 'flag', nav: ['home', 'events', 'clubs'] },
+    dir: { label: 'Director', full: 'Chairperson, Blood Donation', who: 'Every drop counts', icon: 'spark', nav: ['home', 'initiatives', 'drc', 'events', 'clubs'] },
+    chair: { label: 'RYLA Chair', full: 'RYLA Chairman', who: 'RYLA 2026', icon: 'flag', nav: ['home', 'events', 'drc', 'clubs'] },
     pres: { label: 'Club President', full: 'President, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'user', nav: ['home', 'monthly', 'collect', 'wallet', 'drc', 'mom', 'visits', 'events', 'initiatives', 'people', 'pass'] },
     vp: { label: 'Club Vice President', full: 'Vice President, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'user', nav: ['home', 'monthly', 'collect', 'events', 'initiatives', 'people', 'pass'] },
     sec: { label: 'Club Secretary', full: 'Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'collect', 'drc', 'mom', 'events', 'people', 'pass'] },
     jsec: { label: 'Joint Secretary', full: 'Joint Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'events', 'people', 'pass'] },
     trs: { label: 'Club Treasurer', full: 'Treasurer, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'rupee', nav: ['home', 'collect', 'events', 'people', 'pass'] },
-    adsgt: { label: 'Associate District Sergeant-at-Arms', full: 'Associate District Sergeant-at-Arms', who: 'District events', icon: 'badge', nav: ['home', 'review', 'events'] },
-    dsgt: { label: 'District Sergeant-at-Arms', full: 'Chief Sergeant-at-Arms, District', who: 'District events', icon: 'badge', nav: ['home', 'review', 'events'] },
+    adsgt: { label: 'Associate District Sergeant-at-Arms', full: 'Associate District Sergeant-at-Arms', who: 'District events', icon: 'badge', nav: ['home', 'drc', 'review', 'events'] },
+    dsgt: { label: 'District Sergeant-at-Arms', full: 'Chief Sergeant-at-Arms, District', who: 'District events', icon: 'badge', nav: ['home', 'drc', 'review', 'events'] },
     mem: { label: 'Member', full: 'Member, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'id', nav: ['home', 'events', 'initiatives', 'awards'] }
   };
   const NAV = {
     home: ['Home', 'home'], reports: ['Reports', 'doc'], clubs: ['Clubs', 'building'], groups: ['Groups', 'layers'], events: ['Events', 'flag'],
     finance: ['Finance', 'rupee'], initiatives: ['Initiatives', 'spark'], awards: ['Scorecard', 'trophy'], designations: ['Designations', 'badge'],
     people: ['People', 'users'], visits: ['DRR visits', 'calendar'], season: ['Season', 'sun'], log: ['Log project', 'plus'],
-    monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id'], seats: ['Seat allotment', 'id'], drc: ['DRC bookings', 'calendar'], mom: ['Minutes', 'doc'], review: ['Attendance review', 'badge'], collect: ['Event fees', 'rupee']
+    monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id'], seats: ['Seat allotment', 'id'], drc: ['DRC', 'calendar'], mom: ['Minutes', 'doc'], review: ['Attendance review', 'badge'], collect: ['Event fees', 'rupee']
   };
   const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'My group', grs: 'My group', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', trs: 'Club wallet', dsgt: 'Scan at the door', adsgt: 'Scan at the door', mem: 'My pass' };
   // The pass sits right after Home for everyone: it is the thing people need first at a door.
@@ -185,12 +185,14 @@
   /* ---------- notifications ---------- */
   function notifs() {
     const base = {
-      drr: [['16 clubs have not started their October report.', 'reports'], ['Chennai Kolathur asked to become Inactive.', 'clubs'], ['2 new clubs are waiting for charter approval.', 'clubs']],
+      drr: [['Bookings are in for the DRC on 7 Dec. Set the running order.', 'drc'], ['16 clubs have not started their October report.', 'reports'], ['Chennai Kolathur asked to become Inactive.', 'clubs'], ['2 new clubs are waiting for charter approval.', 'clubs']],
       drs: [['9 October reports are waiting for you.', 'home'], ['Madras Cosmos sent its October report to GRS.', 'reports']],
       dt: [['14 payments are waiting to be checked.', 'home'], ['RYLA seat fees close on 30 Nov.', 'events']],
       grr: [[`3 clubs in Group ${myGroup()} have not started October.`, 'home'], ['Madras Cosmos report is waiting for your check.', 'reports']],
-      dir: [['Chennai Velachery logged 42 units.', 'home'], ['Every drop counts crossed 1,400 units.', 'home']],
-      chair: [['Backstage committee has 3 open tasks.', 'home'], ['117 of 180 RYLA seats are filled.', 'home']],
+      dsgt: [['Bookings are in for the DRC on 7 Dec. Arrange the running order.', 'drc']],
+      adsgt: [['Bookings are in for the DRC on 7 Dec. Arrange the running order.', 'drc']],
+      dir: [['The DRC on 7 Dec is open. Book your slot.', 'drc'], ['Chennai Velachery logged 42 units.', 'home'], ['Every drop counts crossed 1,400 units.', 'home']],
+      chair: [['The DRC on 7 Dec is open. Book the RYLA team a slot.', 'drc'], ['Backstage committee has 3 open tasks.', 'home'], ['117 of 180 RYLA seats are filled.', 'home']],
       pres: [['Collect the RYLA fee from your members and tick who paid.', 'collect'], ['Book your club\'s slot for the DRC on 7 Dec.', 'drc'], ['October report is late. You or your secretary can send it.', 'monthly'], ['Book your DRR official visit before 20 Dec.', 'visits'], ['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'wallet']],
       sec: [['October report is late. You or your president can send it.', 'monthly'], ['November: 2 projects logged, 3 steps left.', 'monthly'], ['Report for November is due on 5 Dec.', 'monthly']],
       trs: [['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'home'], ['Conference delegate fee opens on 1 Dec.', 'home']],

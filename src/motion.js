@@ -3,9 +3,10 @@
 // only; everything settles to a still, readable state.
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { gather, gearPoints } from './particles.js';
+import { Flip } from 'gsap/Flip';
+import * as Hero from './hero.js';
 
-gsap.registerPlugin(ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger, Flip);
 const UI = () => window.UI;
 const on = () => !window.UI.calm();
 const REVEAL = '.stat, .card, .role-card, .ev-card, .init, .g-card, .slot-day, .comm, .role-group > h2';
@@ -16,7 +17,14 @@ export function afterRender(root, opts = {}) {
   if (!root) return;
   const isSheet = root.id === 'sheetBody';
   const races = root.querySelectorAll('[data-race]');
-  if (!on()) { races.forEach(r => r.style.setProperty('--p', Number(r.dataset.race) * 0.86)); return; }
+  if (!on()) {
+    races.forEach(r => r.style.setProperty('--p', Number(r.dataset.race) * 0.86));
+    // With animations off the start page still gets the 3D scene, as one still frame.
+    const still = !isSheet && root.querySelector('.land');
+    if (still) Hero.mount(still.querySelector('.stage-host')).catch(() => {});
+    else if (!isSheet) Hero.unmount();
+    return;
+  }
   if (isSheet) {
     gsap.from(root.children, { y: 14, autoAlpha: 0, duration: 0.4, ease: 'power3.out', stagger: 0.05, clearProps: 'transform,opacity,visibility' });
     return;
@@ -27,10 +35,11 @@ export function afterRender(root, opts = {}) {
   cleanups.forEach(f => f()); cleanups = [];
   ScrollTrigger.getAll().forEach(t => t.kill());
 
-  gsap.from(root.querySelectorAll('.ph, .g-band'), { y: 18, autoAlpha: 0, duration: 0.55, ease: 'power3.out', stagger: 0.07, clearProps: 'transform,opacity,visibility' });
+  const heads = root.querySelectorAll('.ph, .g-band');
+  if (heads.length) gsap.from(heads, { y: 18, autoAlpha: 0, duration: 0.55, ease: 'power3.out', stagger: 0.07, clearProps: 'transform,opacity,visibility' });
   const items = [...root.querySelectorAll(REVEAL)].filter(el => !el.closest('.land'));
-  gsap.set(items, { autoAlpha: 0, y: 26 });
-  ScrollTrigger.batch(items, {
+  if (items.length) gsap.set(items, { autoAlpha: 0, y: 26 });
+  if (items.length) ScrollTrigger.batch(items, {
     start: 'top 96%', once: true,
     onEnter: b => gsap.to(b, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out', stagger: 0.055, clearProps: 'transform,opacity,visibility' })
   });
@@ -46,84 +55,64 @@ export function afterRender(root, opts = {}) {
 
   const land = root.querySelector('.land');
   if (land) landing(land);
+  else { const s = Hero.current(); if (s && !s.canvas.closest('#loader')) Hero.unmount(); }
   ScrollTrigger.refresh();
 }
 
 /* ---------- start page ---------- */
 function landing(land) {
+  // The 3D scene loads on its own; the type and button never wait for it.
+  Hero.mount(land.querySelector('.stage-host')).catch(() => {});
   const tl = gsap.timeline({ delay: 0.05 });
-  tl.from(land.querySelector('.land-gear'), { scale: 0, rotate: -200, duration: 1.1, ease: 'back.out(1.5)' }, 0)
-    .from(land.querySelectorAll('.ltr'), { yPercent: 115, rotate: 10, duration: 0.9, ease: 'expo.out', stagger: 0.08 }, 0.15)
-    .from(land.querySelectorAll('.wm-sub, .land-top .btn'), { y: 16, autoAlpha: 0, duration: 0.6, ease: 'power3.out', stagger: 0.1 }, 0.55)
-    .from(land.querySelectorAll('.scene .ly'), { y: 60, autoAlpha: 0, duration: 1, ease: 'power3.out', stagger: 0.09 }, 0.1)
-    .from(land.querySelector('.sun-rise'), { y: 90, duration: 1.4, ease: 'power2.out' }, 0.3);
-
-  // Pointer parallax: near layers move more than far ones.
-  const layers = [...land.querySelectorAll('[data-depth]')].map(el => ({ x: gsap.quickTo(el, 'x', { duration: 0.9, ease: 'power3' }), d: Number(el.dataset.depth) }));
-  const move = e => { const nx = e.clientX / window.innerWidth - 0.5; layers.forEach(l => l.x(-nx * 34 * l.d)); };
-  land.addEventListener('pointermove', move);
-  cleanups.push(() => land.removeEventListener('pointermove', move));
-
-  // Scroll: the brand lifts away and the city sinks slightly as the roles come up.
-  gsap.to(land.querySelector('.land-top'), { yPercent: -35, autoAlpha: 0, ease: 'none', scrollTrigger: { trigger: land, start: 'top top', end: '70% top', scrub: true } });
-  land.querySelectorAll('.scene [data-depth]').forEach(el => {
-    gsap.to(el, { yPercent: Number(el.dataset.depth) * 10, ease: 'none', scrollTrigger: { trigger: land, start: 'top top', end: 'bottom top', scrub: true } });
-  });
+  tl.from(land.querySelectorAll('.ltr'), { yPercent: 115, rotate: 8, duration: 0.95, ease: 'expo.out', stagger: 0.08 }, 0.1)
+    .from(land.querySelectorAll('.wm-sub, .land-top .btn'), { y: 16, autoAlpha: 0, duration: 0.6, ease: 'power3.out', stagger: 0.1 }, 0.5);
+  // Scroll: the brand lifts away, the camera sinks and the wheel turns as the roles come up.
+  gsap.to(land.querySelector('.land-top'), { yPercent: -30, autoAlpha: 0, ease: 'none', scrollTrigger: { trigger: land, start: 'top top', end: '70% top', scrub: true } });
+  ScrollTrigger.create({ trigger: land, start: 'top top', end: 'bottom top', onUpdate: st => Hero.setScroll(st.progress) });
 }
 
 /* ---------- loader ---------- */
+// First visit in a session: sparks gather into the 3D wheel while ICON rises. If the 3D code is slow to
+// arrive, the loader gives up waiting after 1.4 s and the start page picks the scene up when it lands.
 export function loader(done) {
   const L = document.getElementById('loader');
   let seen = false;
   try { seen = sessionStorage.getItem('icon-seen') === '1'; } catch (e) { /* storage blocked */ }
   if (seen || !on()) { L.hidden = true; done(); return; }
-  const U = UI();
-  const gearBox = document.getElementById('ldGear');
-  const w = WHEEL.paths(0, 0, 60);
-  // Drawn in this order as the sparks land: the window and hub outlines, the spokes, then the solid wheel fills in.
-  gearBox.innerHTML = `<svg viewBox="-64 -64 128 128" aria-hidden="true"><path class="ld-ring" pathLength="1" d="${WHEEL.circle(0, 0, 60 * 0.7)}${WHEEL.circle(0, 0, 60 * 0.3)}"/><path class="ld-rose" pathLength="1" d="${w.spokes}"/><g class="ld-teeth"><path fill-rule="evenodd" d="${w.rim}"/><path fill-rule="evenodd" d="${w.hub}"/><path d="${w.spokes}"/></g></svg>`;
-  document.getElementById('ldSky').innerHTML = U.scene('ld');
+  const U = UI(), host = document.getElementById('ldStage');
   const name = U.P.season === 'vibe' ? 'VIBE' : 'ICON';
   document.getElementById('ldName').innerHTML = name.split('').map(c => `<span class="ltr">${c}</span>`).join('');
   L.hidden = false;
-
-  const css = getComputedStyle(document.documentElement);
-  const colors = ['--accent', '--gold', '--sun1', '--star'].map(v => css.getPropertyValue(v).trim());
-  const box = gearBox.getBoundingClientRect();
-  const cx = box.left + box.width / 2, cy = box.top + box.height / 2, k = box.width / 128;
-  const sp = gather(document.getElementById('ldCanvas'), gearPoints().map(([x, y]) => [cx + x * k, cy + y * k]), { duration: 1500, colors, cx, cy });
-
   const q = s => L.querySelectorAll(s);
-  gsap.set(gearBox, { autoAlpha: 0, scale: 0.85 });
   gsap.set(q('.ld-name .ltr'), { yPercent: 120 });
   gsap.set(q('.ld-sub, #ldSkip'), { autoAlpha: 0 });
-  gsap.set(q('.ld-scene .ly'), { y: 150, autoAlpha: 0 });
-  gsap.set(q('.ld-scene .sun-rise'), { y: 120 });
-  gsap.set(q('.ld-rose, .ld-ring'), { strokeDashoffset: 1 });
-  gsap.set(q('.ld-teeth'), { autoAlpha: 0, rotate: -90, scale: 0.7, transformOrigin: '50% 50%' });
+  gsap.to(q('.ld-name .ltr'), { yPercent: 0, duration: 0.9, ease: 'expo.out', stagger: 0.07, delay: 0.2 });
+  gsap.to(q('.ld-sub'), { autoAlpha: 1, duration: 0.5, delay: 0.6 });
+  gsap.to('#ldSkip', { autoAlpha: 1, duration: 0.3, delay: 0.4 });
 
-  let finished = false;
+  let finished = false, st = null, end = 0;
   const finish = () => {
     if (finished) return; finished = true;
+    clearTimeout(slow); clearTimeout(end);
     try { sessionStorage.setItem('icon-seen', '1'); } catch (e) { /* ignore */ }
-    sp.stop();
-    gsap.to(L, { yPercent: -100, duration: 0.85, ease: 'expo.inOut', onComplete: () => { L.hidden = true; gsap.set(L, { clearProps: 'transform,opacity,visibility' }); } });
+    // On the start page, the canvas moves under the loader first, so fading the loader reveals the same scene.
+    const land = document.querySelector('.land .stage-host');
+    if (st && land) Hero.mount(land);
+    gsap.to(L, { autoAlpha: 0, duration: 0.7, ease: 'power2.out', onComplete: () => {
+      L.hidden = true; gsap.set(L, { clearProps: 'opacity,visibility' });
+      if (st && st.canvas.parentNode === host) Hero.unmount();
+    } });
     done();
   };
-  const tl = gsap.timeline({ onComplete: finish });
-  tl.to('#ldSkip', { autoAlpha: 1, duration: 0.3 }, 0.2)
-    .to(gearBox, { autoAlpha: 1, scale: 1, duration: 0.5, ease: 'power2.out' }, 1.25)
-    .to('#ldCanvas', { autoAlpha: 0, duration: 0.5 }, 1.45)
-    .to(q('.ld-rose'), { strokeDashoffset: 0, duration: 0.8, ease: 'power2.inOut' }, 1.4)
-    .to(q('.ld-ring'), { strokeDashoffset: 0, duration: 0.6, ease: 'power2.inOut' }, 1.6)
-    .to(q('.ld-teeth'), { autoAlpha: 1, rotate: 0, scale: 1, duration: 0.7, ease: 'back.out(1.8)' }, 1.7)
-    .to(gearBox, { rotate: 200, y: -30, scale: 0.55, autoAlpha: 0, duration: 0.8, ease: 'power3.in' }, 2.45)
-    .to(q('.ld-scene .ly'), { y: 0, autoAlpha: 1, duration: 1, ease: 'power3.out', stagger: 0.09 }, 2.5)
-    .to(q('.ld-scene .sun-rise'), { y: 0, duration: 1.3, ease: 'power2.out' }, 2.75)
-    .to(q('.ld-name .ltr'), { yPercent: 0, duration: 0.8, ease: 'expo.out', stagger: 0.08 }, 2.75)
-    .to(q('.ld-sub'), { autoAlpha: 1, duration: 0.5 }, 3.1)
-    .to({}, { duration: 0.9 });
-  document.getElementById('ldSkip').onclick = () => { tl.progress(1); };
+  const slow = setTimeout(() => { if (!st) finish(); }, 1400);
+  Hero.ensure().then(s => {
+    if (finished) return;
+    st = s; clearTimeout(slow);
+    if (!s.introPlayed) s.intro();
+    s.attach(host);
+    end = setTimeout(finish, 2700);
+  }).catch(() => {});
+  document.getElementById('ldSkip').onclick = () => { Hero.skip(); finish(); };
 }
 
 /* ---------- micro-interactions ---------- */
@@ -153,4 +142,4 @@ document.addEventListener('pointerdown', e => {
   gsap.fromTo(s, { scale: 0, opacity: 0.35 }, { scale: 1, opacity: 0, duration: 0.6, ease: 'power2.out', onComplete: () => s.remove() });
 }, { passive: true });
 
-export { gsap };
+export { gsap, Flip };

@@ -33,9 +33,9 @@
   U.view('roles', () => `
     ${U.landingNav()}
     <section class="land">
-      ${U.scene('land-sky')}
+      <div class="stage-host" aria-hidden="true"><div class="stage-fb"><span class="fb-sun"></span>${U.gear('fb-wheel spin-slow')}</div></div>
       <div class="land-top">
-        <div class="land-brand">${U.gear('spin-slow land-gear')}<div><span class="wm big" aria-label="${P.season === 'vibe' ? 'VIBE' : 'ICON'}">${letters(P.season === 'vibe' ? 'VIBE' : 'ICON')}</span><span class="wm-sub">Rotaract District 3233, Chennai</span></div></div>
+        <div class="land-brand"><div><span class="wm big" aria-label="${P.season === 'vibe' ? 'VIBE' : 'ICON'}">${letters(P.season === 'vibe' ? 'VIBE' : 'ICON')}</span><span class="wm-sub">Rotaract District 3233, Chennai</span></div></div>
         <button class="btn ink lg" data-act="to-roles">Choose your role${ic('chev')}</button>
       </div>
     </section>
