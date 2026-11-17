@@ -819,3 +819,8 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .land-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; padding: 22px max(16px, 4vw); border-top: 1px solid var(--rule); color: var(--muted); font-size: 0.85rem; }
 .role-intro { margin: 0 0 18px; }
 @media (max-width: 720px) { .ln-brand b { display: none; } }
+
+/* log a project */
+.prompt.plain { font: inherit; font-size: 0.95rem; line-height: 1.55; }
+.joint-box { margin-top: 12px; padding: 12px; border: 1px dashed var(--rule-2); border-radius: var(--r-ctl); }
+.joint-box .chip svg { width: 12px; height: 12px; margin-left: 4px; }
