@@ -1,7 +1,7 @@
 /* Sample data for the ICON 3233 concept demo.
    Every person, club name and figure here is generated, except the VIBE
-   check-in series and the district totals (72 clubs, 5,839 members),
-   which come from the public VIBE home page in November 2026. */
+   check-in series and the district totals (70 clubs, 5,839 members),
+   which come from the public VIBE home page (3233vibe.com) in November 2026: 70 clubs, 49 college with 5,201 members and 21 community with 638, 5,839 Rotaractors in all. */
 (function () {
   function mulberry32(a) {
     return function () {
@@ -39,27 +39,27 @@
   const clubs = [];
   let cid = 1;
   const usedPlace = new Set();
-  // 24 community clubs: Madras Cosmos plus 23 neighbourhood clubs.
+  // 21 community clubs: Madras Cosmos plus 20 neighbourhood clubs.
   clubs.push({ id: cid++, name: 'Madras Cosmos', type: 'Community', group: 6, place: 'Chromepet' });
   usedPlace.add('Chromepet');
-  for (let i = 0; clubs.length < 24; i++) {
+  for (let i = 0; clubs.length < 21; i++) {
     const g = GROUPS[i % 7];
     const p = g.places.find(x => !usedPlace.has(x));
     if (!p) continue;
     usedPlace.add(p);
     clubs.push({ id: cid++, name: 'Chennai ' + p, type: 'Community', group: g.id, place: p });
   }
-  // 48 college clubs, one of them a very large university club.
+  // 49 college clubs, one of them a very large university club.
   clubs.push({ id: cid++, name: 'Senthamizh University', type: 'College', group: 5, place: 'Porur' });
   const usedCollege = new Set();
-  while (clubs.length < 72) {
+  while (clubs.length < 70) {
     const n = pick(PRE) + ' ' + pick(TYPES);
     if (usedCollege.has(n)) continue;
     usedCollege.add(n);
     const g = GROUPS[clubs.length % 7];
     clubs.push({ id: cid++, name: n, type: 'College', group: g.id, place: pick(g.places) });
   }
-  // Members, scaled so the district total is 5,839.
+  // Members, scaled so the district total is 5,839: 5,201 in college clubs and 638 in community clubs.
   let sum = 0;
   clubs.forEach(c => {
     if (c.name === 'Senthamizh University') c.members = 2988;
@@ -67,15 +67,17 @@
     else c.members = c.type === 'College' ? ri(18, 92) : ri(12, 38);
     sum += c.members;
   });
-  let diff = 5839 - sum, k = 2;
-  while (diff !== 0) {
-    const c = clubs[k % clubs.length];
-    if (c.name !== 'Senthamizh University' && c.name !== 'Madras Cosmos') {
+  const fit = (list, target) => {
+    let diff = target - list.reduce((a, c) => a + c.members, 0), k = 0;
+    while (diff !== 0) {
+      const c = list[k++ % list.length];
+      if (c.name === 'Senthamizh University' || c.name === 'Madras Cosmos') continue;
       const step = diff > 0 ? 1 : -1;
       if (c.members + step >= 10) { c.members += step; diff -= step; }
     }
-    k++;
-  }
+  };
+  fit(clubs.filter(c => c.type === 'College'), 5201);
+  fit(clubs.filter(c => c.type === 'Community'), 638);
   clubs.forEach(c => {
     const g = GROUPS[c.group - 1];
     const a = R() * Math.PI * 2, d = Math.sqrt(R()) * g.r;
@@ -244,7 +246,7 @@
     if (dow === 0 || dow === 6) visits.push({ id: 'v' + d + 'a', day, mon, dow, time: '10:00 am' });
     if (dow >= 1 && dow <= 5 && vr() > 0.35) visits.push({ id: 'v' + d + 'b', day, mon, dow, time: '6:30 pm' });
   }
-  visits.forEach(v => { if (vr() > 0.55) v.club = clubs[1 + Math.floor(vr() * 70)].id; });
+  visits.forEach(v => { if (vr() > 0.55) v.club = clubs[1 + Math.floor(vr() * (clubs.length - 1))].id; });
 
   // Real series from the VIBE public home page, November 2026.
   const checkins = [ { m: 'Jul', v: 248 }, { m: 'Aug', v: 183 }, { m: 'Sep', v: 152 }, { m: 'Oct', v: 36 }, { m: 'Nov', v: 57 } ];

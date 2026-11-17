@@ -439,10 +439,14 @@ Here are the member details:
   A.scroll = el => { const t = U.$(el.dataset.t); if (t) window.scrollTo({ top: t.getBoundingClientRect().top + window.scrollY - 64, behavior: U.calm() ? 'auto' : 'smooth' }); };
   F.contact = f => { f.reset(); U.toast('Message sent to the district office (demo only, nothing is stored)'); };
 
-  U.landingNav = () => `<nav class="land-nav" aria-label="Sections"><span class="ln-brand">${U.gear()}<b>${P.season === 'vibe' ? 'VIBE' : 'ICON'}</b></span><div class="ln-links">${[['about', 'About'], ['history', 'History'], ['events', 'Events'], ['gallery', 'Gallery'], ['team', 'Leadership'], ['clubs-map', 'Clubs'], ['contact', 'Contact']].map(([id, l]) => `<button data-act="scroll" data-t="#${id}">${l}</button>`).join('')}</div><button class="btn sm ink" data-act="scroll" data-t="#roles">Sign in</button></nav>`;
+  U.landingNav = () => `<nav class="land-nav" aria-label="Sections"><span class="ln-brand">${U.gear()}<b>${P.season === 'vibe' ? 'VIBE' : 'ICON'}</b></span><div class="ln-links">${[['about', 'About'], ['pulse', 'Pulse'], ['board', 'Leaderboard'], ['how', 'How it works'], ['history', 'History'], ['events', 'Events'], ['gallery', 'Gallery'], ['team', 'Leadership'], ['clubs-map', 'Clubs'], ['contact', 'Contact']].map(([id, l]) => `<button data-act="scroll" data-t="#${id}">${l}</button>`).join('')}</div><button class="btn sm ink" data-act="scroll" data-t="#roles">Sign in</button></nav>`;
 
+  let TOPM = null;
+  const topMembers = () => { if (!TOPM) { const all = []; for (let i = 0; i < D.memberCount; i++) all.push(D.member(i)); TOPM = all.sort((a, b) => b.points - a.points || a.i - b.i).slice(0, 5); } return TOPM; };
+  const topClubs = () => U.scoreRank().slice(0, 5);
   U.landingSections = () => {
     const act = U.activeClubs(), college = act.filter(c => c.type === 'College').length;
+    const memC = act.filter(c => c.type === 'College').reduce((a, c) => a + c.members, 0), memK = act.filter(c => c.type === 'Community').reduce((a, c) => a + c.members, 0);
     const upcoming = D.EVENTS.filter(e => e.status !== 'Done').slice(0, 4);
     const office = D.designations.filter(d => d.team === 'DRR office').slice(0, 4).concat(D.designations.filter(d => d.title === 'District Rotaract Secretary'));
     return `<section id="about" class="sec"><div class="sec-in">
@@ -454,7 +458,25 @@ Here are the member details:
           <div class="card"><b>Fees without the chase</b><p class="note">Dues and event seats sit in one club wallet. A club pays once, and the treasurer checks one line.</p></div>
           <div class="card"><b>Every event, every year</b><p class="note">Each event keeps its record, its attendance and its certificates, even when the chair runs sign-ups on their own site.</p></div>
         </div></div></section>
-      <section id="history" class="sec alt"><div class="sec-in">
+      <section id="pulse" class="sec alt"><div class="sec-in">
+        <span class="eyebrow">District pulse</span><h2 class="sec-h">The district, in live numbers</h2>
+        <p class="lede">Every scan, project and report rolls up here the moment it happens. No monthly PDFs, no waiting.</p>
+        <div class="stats flat">${U.fig(57, 'Check-ins this month', '36 last month')}${U.fig(D.checkins.reduce((a, c) => a + c.v, 0), 'Check-ins since July')}${U.fig(act.reduce((a, c) => a + U.projects(c, 3).length, 0), 'Projects reported in October')}${U.fig(act.reduce((a, c) => a + U.projects(c, 3).reduce((x, p) => x + p.beneficiaries, 0), 0), 'Beneficiaries in October')}</div>
+        <div class="card"><div class="card-h"><h2>Check-ins by month</h2><span class="muted">QR scans at district events</span></div>${U.spark(D.checkins)}</div>
+      </div></section>
+      <section id="board" class="sec"><div class="sec-in">
+        <span class="eyebrow">Leaderboard</span><h2 class="sec-h">Who is on top right now</h2>
+        <p class="lede">Points land the second a member scans in or a club files on time. Names here are samples.</p>
+        <div class="grid-2"><section class="card"><div class="card-h"><h2>Members</h2><span class="muted">Top 5</span></div><ol class="rank">${topMembers().map((m, i) => `<li class="${i < 3 ? 'medal m' + i : ''}"><span class="rk fig">${i + 1}</span><span class="rk-n"><b>${esc(m.name)}</b><small class="sub">${esc(m.club.name)}</small></span><b class="fig">${m.points}</b></li>`).join('')}</ol></section>
+        <section class="card"><div class="card-h"><h2>Clubs</h2><span class="muted">Top 5 by scorecard</span></div><ol class="rank">${topClubs().map((x, i) => `<li class="${i < 3 ? 'medal m' + i : ''}"><span class="rk fig">${i + 1}</span><span class="rk-n"><b>${esc(x.c.name)}</b><small class="sub">${x.c.type}, Group ${U.groupOf(x.c)}</small></span><span class="rk-bar"><i style="--w:${(x.s / 100).toFixed(2)}"></i></span><b class="fig">${x.s}</b></li>`).join('')}</ol></section></div>
+      </div></section>
+      <section id="how" class="sec alt"><div class="sec-in">
+        <span class="eyebrow">How it works</span><h2 class="sec-h">Three steps, one platform</h2>
+        <div class="trio"><div class="card"><span class="eyebrow">Step 1</span><b>Scan in</b><p class="note">Show up to a district event and scan the QR. The sergeant's scan logs your check-in at once.</p></div><div class="card"><span class="eyebrow">Step 2</span><b>Earn points</b><p class="note">Punctuality bonuses, event turnout, on-time reports and initiatives all build your score.</p></div><div class="card"><span class="eyebrow">Step 3</span><b>Climb the board</b><p class="note">See where you and your club stand across the district, and who leads the group race.</p></div></div>
+        <ul class="feat">${['QR attendance: a personal pass, sergeant scans land instantly', 'Live leaderboard: punctuality and turnout, ranked', 'Club management: officers, rosters and posts, kept by each club', 'Project reports: the secretary or president sends, the GRS and DRS review', 'Club wallet: dues and event seats, paid in one go', 'Seat allotment: groups spread RYLA and conference seats over their clubs'].map(t => `<li>${ic('check')}<span>${t}</span></li>`).join('')}</ul>
+        <div class="row-btns"><button class="btn ink lg" data-act="scroll" data-t="#roles">Sign in${ic('chev')}</button></div>
+      </div></section>
+      <section id="history" class="sec"><div class="sec-in">
         <span class="eyebrow">History</span><h2 class="sec-h">From one club to a district of clubs</h2>
         <ol class="timeline big">
           <li class="done"><b>1905</b><span>Paul Harris founds the first Rotary club in Chicago. Its motto, Service Above Self, still guides Rotaract.</span></li>
@@ -463,27 +485,27 @@ Here are the member details:
           <li><b>1 July 2027</b><span>ICON 2027-28 takes over. Clubs, members and history carry over, and the new DRR sets the season's look.</span></li>
         </ol>
         <p class="note edit-note">The district's own milestones go here: charter year, past DRRs, flagship events and records. The DRR office can add them from the Season page. The district entries above are placeholders for the demo.</p></div></section>
-      <section id="events" class="sec"><div class="sec-in">
+      <section id="events" class="sec alt"><div class="sec-in">
         <span class="eyebrow">Events</span><h2 class="sec-h">Coming up</h2>
         <div class="ev-grid">${upcoming.map(e => `<div class="ev-card static"><span class="ev-top"><span class="ev-kind">${esc(e.kind)}</span>${U.pill(e.status, e.status === 'Planning' ? 'neutral' : 'warn')}</span><b class="ev-name">${esc(e.name)}</b><span class="ev-when">${esc(e.date)}</span>${e.full ? `<small class="sub">${esc(e.full)}</small>` : ''}<span class="ev-chair">Clubs register through their GRR or GRS</span></div>`).join('')}</div>
       </div></section>
-      <section id="gallery" class="sec alt"><div class="sec-in">
+      <section id="gallery" class="sec"><div class="sec-in">
         <span class="eyebrow">Gallery</span><h2 class="sec-h">The year in pictures</h2>
         <div id="galBox">${galleryHTML()}</div>
         <p class="note edit-note">Sample drawings for the demo. Event chairs and the photography team upload the real pictures, and each album follows its event.</p></div></section>
-      <section id="team" class="sec"><div class="sec-in">
+      <section id="team" class="sec alt"><div class="sec-in">
         <span class="eyebrow">Leadership</span><h2 class="sec-h">The people who run the district</h2>
         <div class="people-grid">${office.map(d => `<div class="card person-c"><span class="pp big">${esc(d.holder.split(' ').map(x => x[0]).join(''))}</span><b>${esc(d.holder)}</b><small class="sub">${esc(d.title)}</small></div>`).join('')}</div>
         <h3 class="sub-h">Group leaders</h3>
         <div class="people-grid">${D.GROUPS.map(g => `<div class="card person-c" style="--g:${U.gcolor(g.id)}"><span class="gp" style="--g:${U.gcolor(g.id)}">${g.name}</span><small class="sub">${esc(g.area)}</small><b>${esc(g.grr)}</b><small class="sub">GRR</small><b>${esc(g.grs)}</b><small class="sub">GRS</small></div>`).join('')}</div>
       </div></section>
-      <section id="clubs-map" class="sec alt"><div class="sec-in two">
+      <section id="clubs-map" class="sec"><div class="sec-in two">
         <div><span class="eyebrow">Clubs</span><h2 class="sec-h">${act.length} clubs, seven groups</h2>
-          <p class="lede">${act.length - college} community clubs and ${college} college clubs, from Ennore in the north to Siruseri in the south.</p>
+          <p class="lede">${college} college clubs with ${num(memC)} members and ${act.length - college} community clubs with ${num(memK)} members, from Ennore in the north to Siruseri in the south.</p>
           <ul class="legend vert"><li><i class="lg ok"></i>Community club</li><li><i class="lg warn"></i>College club</li></ul></div>
         <div class="map-box">${U.mapSVG({ plain: true, dotClass: c => (c.type === 'College' ? 'warn' : 'ok') })}</div>
       </div></section>
-      <section id="contact" class="sec"><div class="sec-in two">
+      <section id="contact" class="sec alt"><div class="sec-in two">
         <div><span class="eyebrow">Contact</span><h2 class="sec-h">Talk to the district office</h2><p class="lede">Want to start a club, join one, or invite the district to an event? Write to us and the office replies.</p></div>
         <form class="card form" data-form="contact"><label class="field" for="ctN"><span>Your name</span><input id="ctN" name="name" required></label><label class="field" for="ctE"><span>Email</span><input id="ctE" name="email" type="email" required></label><label class="field" for="ctM"><span>Message</span><textarea id="ctM" name="msg" rows="4" required></textarea></label><div class="form-act"><button class="btn ink" type="submit">Send message</button><span class="muted">Demo: nothing is stored.</span></div></form>
       </div></section>

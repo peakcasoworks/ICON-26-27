@@ -29,7 +29,7 @@ src/motion.js       GSAP: loader timeline, page and card reveals, group race, la
 src/particles.js    canvas sparks that gather into the district gear
 src/search.js       district search (Cmd or Ctrl+K, or /): pages, clubs, 5,839 people, events, initiatives, posts
 src/setup.js        connects motion and search to the app
-src/core/data.js    sample data: 72 clubs, 7 groups, members, events, initiatives, posts
+src/core/data.js    sample data: 70 clubs (49 college, 21 community), 7 groups, members, events, initiatives, posts
 src/core/ui.js      state, router, drawings (gear, Chennai scene, auto, rings, pager)
 src/core/views-*.js every screen, by role
 src/core/views-e.js seats, group desk, roster tools, export, bank matching, colours, start page sections

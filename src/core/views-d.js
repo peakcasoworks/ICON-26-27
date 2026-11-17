@@ -149,6 +149,7 @@
     const tw = Object.values(w).reduce((a, b) => a + b, 0) || 1;
     return rs.map(r => ({ c: r.c, s: Math.round(Object.keys(W0).reduce((a, k) => a + (r[k] / max[k]) * w[k], 0) / tw * 100) })).sort((a, b) => b.s - a.s);
   }
+  U.scoreRank = ranked;
   U.scoreList = () => {
     const rk = ranked();
     const top = t => rk.filter(x => x.c.type === t).slice(0, 5);
