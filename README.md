@@ -16,6 +16,7 @@ npm run dev        # http://localhost:5173
 
 The build is a static site with no server code.
 
+- **Cloudflare Workers (Git build):** build command `npm run build`, deploy command `npx wrangler deploy`. `wrangler.jsonc` points Wrangler at `dist/`, so it skips its own Vite setup step.
 - **Cloudflare Pages:** build command `npm run build`, output directory `dist`. Or from the terminal: `npx wrangler pages deploy dist`.
 - **Netlify, Vercel or GitHub Pages:** the same build command and the `dist` folder. `base: './'` in `vite.config.js` makes it work from any path.
 
