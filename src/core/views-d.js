@@ -11,7 +11,7 @@
   U.view('events', () => {
     const list = D.EVENTS.filter(e => EF.f === 'all' || (EF.f === 'up' ? e.status !== 'Done' : EF.f === 'done' ? e.status === 'Done' : e.kind === 'Flagship'));
     const chip = (v, l) => `<button class="chip${EF.f === v ? ' on' : ''}" data-act="ev-f" data-v="${v}" aria-pressed="${EF.f === v}">${l}</button>`;
-    return `${head('Events', 'The district year at a glance. Each event keeps its record here, even when the chair runs registration on their own website.', U.isLead() ? `<button class="btn ink" data-act="new-event">${ic('plus')}New event</button>` : '')}
+    return `${head('Events', 'The district year at a glance. Each event keeps its record here, even when the chair runs registration on their own website.', U.can.createEvent() ? `<button class="btn ink" data-act="new-event">${ic('plus')}New event</button>` : '')}
     <section class="card year">
       <div class="yr" role="list">${MON.map((m, i) => `<div class="yr-m${i === NOW_M ? ' now' : ''}${i < NOW_M ? ' past' : ''}" role="listitem"><span class="yr-l">${m}</span><div class="yr-e">${D.EVENTS.filter(e => e.m === i).map(e => `<button class="yr-dot ${e.kind.toLowerCase()}" data-go="event" data-arg="${e.id}" title="${esc(e.name)}"><span class="sr">${esc(e.name)}</span></button>`).join('')}</div></div>`).join('')}</div>
       <p class="muted yr-key"><span><i class="yr-dot flagship"></i>Flagship</span><span><i class="yr-dot training"></i>Training</span><span><i class="yr-dot service"></i>Service and campaigns</span><span><i class="yr-dot awards"></i>Awards</span></p>
@@ -195,7 +195,7 @@
       <span class="in-fig"><b class="fig" data-count="${x.now}">${num(x.now)}</b><small>of ${num(x.goal)} ${esc(x.unit)}</small></span>
       <span class="bt"><i style="--w:${Math.min(1, x.now / x.goal).toFixed(3)};--c:var(--sw${x.sw})"></i></span>
       <small class="in-clubs">${x.clubs} clubs taking part</small></button>`).join('');
-  U.view('initiatives', () => `${head('Initiatives', 'Campaigns, directories and challenges the district runs this year. Add a new one any time. It shows up for every club at once.', ['drr', 'dir'].includes(U.role()) ? `<button class="btn ink" data-act="new-initiative">${ic('plus')}New initiative</button>` : '')}
+  U.view('initiatives', () => `${head('Initiatives', 'Campaigns, directories and challenges the district runs this year. Add a new one any time. It shows up for every club at once.', U.can.createInitiative() ? `<button class="btn ink" data-act="new-initiative">${ic('plus')}New initiative</button>` : '')}
     <div class="init-grid" id="initGrid">${U.views_initCards()}</div>`);
   U.views_initiative = (id, isHome) => {
     const x = inits().find(i => i.id === id) || inits()[0];

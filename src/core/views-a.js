@@ -13,7 +13,7 @@
   }).sort((a, b) => b.v - a.v);
   U.race = (rows, mine) => `<div class="race">${rows.map((x, i) => `<div class="lane${mine === x.id ? ' mine' : ''}" style="--g:${U.gcolor(x.id)}">
       <button class="ln-name" data-go="group" data-arg="${x.id}"><span class="ln-rank fig">${i + 1}</span>${x.name}</button>
-      <div class="track"><span class="finish" aria-hidden="true"></span><div class="runner" data-race="${x.v}" style="--p:${x.v * 0.86}">${U.auto('race-auto')}<b class="fig ln-v">${x.v}%</b></div></div>
+      <div class="track"><span class="finish" aria-hidden="true"></span><div class="runner" data-race="${x.v}" style="--p:${x.v * 0.86}">${U.roller('race-roll')}<b class="fig ln-v">${x.v}%</b></div></div>
     </div>`).join('')}</div>`;
   U.waffle = list => `<div class="waffle">${list.map(c => {
     const s = U.report(c, 3).status, k = s === 'accepted' ? 'ok' : (s === 'none' || s === 'returned' || s === 'draft') ? 'bad' : 'warn';
@@ -74,7 +74,7 @@
     const accepted = cnt('accepted'), review = cnt('grs') + cnt('drs'), notStarted = cnt('none') + cnt('draft') + cnt('returned');
     let due = 0, got = 0;
     act.forEach(c => U.wallet(c).forEach(w => { if (w.status === 'verified') got += w.amount; else due += w.amount; }));
-    const members = act.reduce((a, c) => a + c.members, 0);
+    const members = act.reduce((a, c) => a + U.paidMembers(c), 0);
     const college = act.filter(c => c.type === 'College').length;
     const proposed = all.filter(c => U.stateOf(c) === 'Proposed').length;
     const groups = D.GROUPS.map(g => {
@@ -102,7 +102,7 @@
       <section class="card">
         <div class="card-h"><h2>Group race, October reports</h2><button class="lnk" data-go="groups">All groups</button></div>
         ${U.race(groups.map(x => ({ id: x.g.id, name: x.g.name, v: x.v })))}
-        <p class="note">Each group's auto moves up as its clubs' reports clear review (accepted or with the DRS). First to the flag wins the month.</p>
+        <p class="note">Each group's wheel rolls forward as its clubs' reports clear review (accepted or with the DRS). First to the flag wins the month.</p>
       </section>
       <div class="col">
         <section class="card">
@@ -147,7 +147,7 @@
   function groupHome(gid, mine) {
     const g = D.GROUPS[gid - 1];
     const cs = U.activeClubs().filter(c => U.groupOf(c) === gid);
-    const mem = cs.reduce((a, c) => a + c.members, 0);
+    const mem = cs.reduce((a, c) => a + U.paidMembers(c), 0);
     const ok = cs.filter(c => U.report(c, 3).status === 'accepted').length;
     const waitingMe = cs.filter(c => U.report(c, 3).status === 'grs');
     const lagging = cs.filter(c => ['none', 'draft', 'returned'].includes(U.report(c, 3).status));
@@ -169,7 +169,7 @@
           const fee = w.some(x => x.status === 'overdue') ? 'overdue' : w.some(x => x.status === 'due') ? 'due' : 'verified';
           const nudged = P.nudged[c.id];
           const action = st === 'grs' ? `<button class="btn sm ink" data-go="report" data-arg="${c.id}">Check</button>` : ['none', 'draft', 'returned'].includes(st) ? `<button class="btn sm" data-act="nudge" data-id="${c.id}" ${nudged ? 'disabled' : ''}>${nudged ? 'Nudged' : 'Nudge'}</button>` : '';
-          return `<tr><td><button class="lnk strong" data-go="club" data-arg="${c.id}">${esc(c.name)}</button><small class="sub">${c.type}, ${c.members} members</small></td><td>${U.rpill(st)}</td><td class="fig">${U.projects(c, 4).length}</td><td>${U.ppill(fee)}</td><td class="r">${action}</td></tr>`;
+          return `<tr><td><button class="lnk strong" data-go="club" data-arg="${c.id}">${esc(c.name)}</button><small class="sub">${c.type}, ${U.paidMembers(c)} paid members</small></td><td>${U.rpill(st)}</td><td class="fig">${U.projects(c, 4).length}</td><td>${U.ppill(fee)}</td><td class="r">${action}</td></tr>`;
         }).join('')}</tbody></table></div>
       </section>
       <section class="card">
@@ -191,7 +191,7 @@
     const owe = open.reduce((a, x) => a + x.amount, 0);
     const evs = D.EVENTS.filter(e => e.status !== 'Done').slice(0, 3);
     const octAction = U.can.sendReport() && ['draft', 'none', 'returned'].includes(oct.status) ? `<button class="btn ink" data-go="monthly" data-arg="3">${ic('send')}Finish and send October</button>` : '';
-    return `<div class="g-band" style="--g:${U.gcolor(c.group)}"><span>Rotaract Club of ${esc(c.name)}</span><small>Group ${U.groupOf(c)}, ${c.type.toLowerCase()} club since ${c.chartered}, ${c.members} members</small></div>
+    return `<div class="g-band" style="--g:${U.gcolor(c.group)}"><span>Rotaract Club of ${esc(c.name)}</span><small>Group ${U.groupOf(c)}, ${c.type.toLowerCase()} club since ${c.chartered}, ${U.paidMembers(c)} paid members${U.unpaidMembers(c) ? `, ${U.unpaidMembers(c)} not paid yet` : ''}</small></div>
     ${head('Club home', r === 'pres' ? 'Send reports, keep fees clear and book your DRR visit.' : 'Log each project the day it happens. The monthly report then builds itself.', `<button class="btn ink" data-go="log">${ic('plus')}Log a project</button>`)}
     ${U.passStrip()}
     <div class="grid-club">

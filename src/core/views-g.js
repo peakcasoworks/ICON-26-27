@@ -8,6 +8,10 @@
 
   /* ---------- who is on the pass ---------- */
   U.passPerson = () => {
+    // One person, one pass: an official's pass carries their club membership, and their club view shows the same pass.
+    if (P.hat) { const club = U.myClub(), m = D.memberOf(club, P.hat.k), h = D.homeOf(P.hat.name); return { name: P.hat.name, line: `${P.hat.post}, ${club.name}${h ? '. Also ' + h.titles.join(', ') : ''}`, id: m.id, points: 520 }; }
+    const home = U.personaHome();
+    if (home) { const m = D.memberOf(home.club, home.k); return { name: home.name, line: `${home.titles.join(', ')}. Member, ${home.club.name}`, id: m.id, points: 520 }; }
     const r = U.role(), club = U.myClub(), g = D.GROUPS[U.MY_GROUP - 1];
     if (r === 'grr') return { name: g.grr, line: `GRR, Group ${g.id}`, id: 'R3233' + String(900 + g.id).padStart(3, '0'), points: 410 };
     if (r === 'grs') return { name: g.grs, line: `GRS, Group ${g.id}`, id: 'R3233' + String(910 + g.id).padStart(3, '0'), points: 380 };

@@ -215,7 +215,7 @@
   const DO = [
     ['DRR office', [['District Rotaract Representative','District Admin','District'],['Associate DRR','District Admin','District'],['Associate DRR','District Admin','District'],['DRR Elect','District Admin','District'],['Immediate Past DRR','Advisor','District'],['District Learning Facilitator','Advisor','District'],['DRR Special Representative','Advisor','District'],['DOLS Chairman','Event Chair','DOLS']]],
     ['Secretariat', [['District Rotaract Secretary','Secretariat','District'],['Associate District Secretary','Secretariat','District'],['Associate District Secretary','Secretariat','District'],['District Treasurer','Finance','District'],['Deputy District Treasurer','Finance','District']]],
-    ['Groups', GROUPS.map(g => ['Group Rotaract Representative','Group Lead','Group ' + g.id]).concat(GROUPS.slice(0, 3).map(g => ['Group Rotaract Secretary','Group Lead','Group ' + g.id]))],
+    ['Groups', [['Group Coordinator','Group Lead','District']].concat(GROUPS.map(g => ['Group Rotaract Representative','Group Lead','Group ' + g.id]).concat(GROUPS.slice(0, 3).map(g => ['Group Rotaract Secretary','Group Lead','Group ' + g.id])))],
     ['Avenues', [['Director, Club Service','Portfolio','Club Service'],['Director, Community Service','Portfolio','Community Service'],['Director, Professional Service','Portfolio','Professional Service'],['Director, International Service','Portfolio','International Service'],['Chairperson, Blood Donation','Portfolio','Every drop counts'],['Chairperson, RIDE','Portfolio','RIDE']]],
     ['Events', [['RYLA Chairman','Event Chair','RYLA'],['Assembly Chairman','Event Chair','District Assembly'],['Conference Chairman','Event Chair','District Conference'],['Chairperson, Half-Yearly Awards','Event Chair','Half-Yearly Awards'],['Chairperson, World Rotaract Week','Event Chair','World Rotaract Week'],['PELS and SELS Chairperson','Event Chair','PELS and SELS']]],
     ['Sergeants', [['Chief Sergeant-at-Arms','Sergeant','District'],['Deputy Sergeant-at-Arms','Sergeant','District'],['Associate Sergeant-at-Arms','Sergeant','District'],['Associate Sergeant-at-Arms','Sergeant','District']]],
@@ -226,6 +226,25 @@
   DO.forEach(([team, list]) => list.forEach(([title, tpl, scope]) => designations.push({ id: did++, team, title, tpl, scope, holder: person() })));
   // One person, two posts, as happens every year.
   designations.find(d => d.title === 'RYLA Chairman').holder = designations.find(d => d.title === 'Chairperson, Blood Donation').holder;
+
+  // Every district official, GRR and GRS is also a member of one club, and may hold a club post there too: a club's treasurer
+  // can be the district's Director, Club Service. Their seat in the club roster carries both, so each person counts once.
+  const hashOf = s => [...s].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
+  const homes = new Map(), seats = new Map();
+  const live = clubs.filter(c => c.state === 'Active' && c.members > 8);
+  function seat(name, title, pool, post) {
+    if (homes.has(name)) { homes.get(name).titles.push(title); return; }
+    const c = pool[hashOf(name) % pool.length], taken = seats.get(c.id) || new Map();
+    let k = post === 'Treasurer' && !taken.has(2) ? 2 : post === 'Secretary' && !taken.has(1) ? 1 : 3;
+    if (k === 2) c.treasurer = name; else if (k === 1) c.secretary = name; else { while (taken.has(k) && k < c.members - 1) k++; }
+    const p = k === 2 ? 'Treasurer' : k === 1 ? 'Secretary' : (post === 'Treasurer' || post === 'Secretary' ? 'Board member' : post);
+    taken.set(k, { name, post: p }); seats.set(c.id, taken);
+    homes.set(name, { club: c, k, post: p, titles: [title] });
+  }
+  const CLUB_POST = { 'District Rotaract Representative': 'Immediate Past President (IPP)', 'Director, Club Service': 'Treasurer', 'Chairperson, Blood Donation': 'Secretary', 'District Treasurer': 'Board member' };
+  designations.forEach(d => seat(d.holder, d.title, d.title === 'District Rotaract Representative' ? [cosmos] : live, CLUB_POST[d.title] || (hashOf(d.holder) % 3 === 0 ? 'Board member' : 'Member')));
+  GROUPS.forEach(g => { const pool = live.filter(c => c.group === g.id); seat(g.grr, 'GRR, Group ' + g.id, pool.length ? pool : live, 'Board member'); seat(g.grs, 'GRS, Group ' + g.id, pool.length ? pool : live, 'Member'); });
+  const homeOf = name => homes.get(name) || null;
 
   const TEMPLATES = {
     'District Admin': 'Everything, including season setup and designations',
@@ -265,11 +284,13 @@
     const r = mulberry32(i * 2654435761);
     const idx = i - offsets[lo];
     let role = idx === 0 ? 'President' : idx === 1 ? 'Secretary' : idx === 2 ? 'Treasurer' : pick(ROLES_M, r);
-    const name = idx === 0 ? c.president : idx === 1 ? c.secretary : idx === 2 ? c.treasurer : person(r);
-    return { i, name, club: c, role, points: Math.floor(r() * 18) * 50, joined: 2019 + Math.floor(r() * 8), id: 'R' + (3233000 + i) };
+    let name = idx === 0 ? c.president : idx === 1 ? c.secretary : idx === 2 ? c.treasurer : person(r);
+    const st = seats.get(c.id), s = st && st.get(idx), home = s && homes.get(s.name);
+    if (s) { name = s.name; role = s.post; }
+    return { i, name, club: c, role, district: home ? home.titles.join(', ') : '', points: Math.floor(r() * 18) * 50, joined: 2019 + Math.floor(r() * 8), id: 'R' + (3233000 + i) };
   }
 
   // The k-th member of one club (the first is its president, then secretary and treasurer).
   function memberOf(club, k) { const at = clubs.indexOf(club); return member(at < 0 ? 0 : offsets[at] + Math.min(Math.max(0, k), club.members - 1)); }
-  window.D = { GROUPS, clubs, memberOf, MONTHS, AVENUES, FOCUS, EVENTS, COMMITTEES, INITIATIVES, designations, TEMPLATES, visits, checkins, projectsFor, baseReport, walletFor, member, memberCount: acc, cosmos, person, mulberry32 };
+  window.D = { GROUPS, clubs, memberOf, MONTHS, AVENUES, FOCUS, EVENTS, COMMITTEES, INITIATIVES, designations, TEMPLATES, visits, checkins, projectsFor, baseReport, walletFor, member, memberCount: acc, cosmos, person, mulberry32, homeOf };
 })();

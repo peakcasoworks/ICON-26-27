@@ -87,7 +87,7 @@
       const ctl = n == null
         ? (edit ? `<button class="btn sm ink" data-act="ct-fix" data-c="${c.id}">Fix a count</button>` : '<span class="muted">Not fixed</span>')
         : (edit ? `<div class="st-ctl ct-step"><button type="button" class="stp" data-act="ct-step" data-c="${c.id}" data-d="-1" ${n <= 0 ? 'disabled' : ''} aria-label="One fewer for ${esc(c.name)}">${ic('minus')}</button><output class="fig">${n}</output><button type="button" class="stp" data-act="ct-step" data-c="${c.id}" data-d="1" aria-label="One more for ${esc(c.name)}">${ic('plus')}</button></div>` : `<b class="fig">${n}</b>`);
-      return `<tr><td><b>${esc(c.name)}</b><small class="sub">${esc(c.type)}, ${c.members} members${when ? `. Fixed ${esc(when)}` : ''}</small></td>
+      return `<tr><td><b>${esc(c.name)}</b><small class="sub">${esc(c.type)}, ${U.paidMembers(c)} paid members${when ? `. Fixed ${esc(when)}` : ''}</small></td>
         <td data-l="Count">${ctl}</td>
         <td class="fig r" data-l="Owes">${n ? inr(n * fee) : ''}</td>
         <td data-l="Registered">${n ? (p >= n ? U.pill('All registered', 'ok') : U.pill(`${p} of ${n}, ${n - p} pending`, 'warn')) : n === 0 ? '<span class="muted">Not sending</span>' : U.pill('Count not fixed', 'neutral')}</td></tr>`;
@@ -114,8 +114,8 @@
     if (!canCount()) return;
     const e = D.EVENTS.find(x => x.id === CT.ev), c = U.club(el.dataset.c);
     U.sheet(`<h2 class="sh-h">${esc(c.name)}, ${esc(e.name)}</h2><p class="note">How many members did the club agree to send? ${inr(U.feeOf(e))} a head goes into their wallet.</p>
-      <form class="form" data-form="ct-set" data-c="${c.id}"><label class="field" for="ctN"><span>Agreed count</span><input id="ctN" name="n" type="number" inputmode="numeric" min="0" max="${c.members}" required autofocus></label>
-      <div class="form-act"><button class="btn ink" type="submit">Fix the count</button><span class="muted">${c.members} members in the club</span></div></form>`);
+      <form class="form" data-form="ct-set" data-c="${c.id}"><label class="field" for="ctN"><span>Agreed count</span><input id="ctN" name="n" type="number" inputmode="numeric" min="0" max="${U.paidMembers(c) + U.unpaidMembers(c)}" required autofocus></label>
+      <div class="form-act"><button class="btn ink" type="submit">Fix the count</button><span class="muted">${U.paidMembers(c)} paid members in the club</span></div></form>`);
   };
   F['ct-set'] = f => {
     if (!canCount()) return;

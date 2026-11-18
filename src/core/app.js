@@ -16,7 +16,7 @@
 
   /* ---------- actions ---------- */
   const A = {
-    'pick-role'(el) { P.role = el.dataset.role; save(); U.closeSheet(); U.resetTrail(); U.go('home'); U.toast('Viewing as ' + roleLabel(P.role)); },
+    'pick-role'(el) { P.role = el.dataset.role; P.hat = null; save(); U.closeSheet(); U.resetTrail(); U.go('home'); U.toast('Viewing as ' + roleLabel(P.role)); },
     roles() {
       const clubs = U.demoClubs();
       U.sheet(`<h2 class="sh-h">Switch role</h2><p class="note">Same demo, different seat. Each login sees only what its job needs: a club sees its own club, a group lead sees the group, the district sees everything.</p>
@@ -33,11 +33,23 @@
       const items = U.R().nav.slice(4);
       // Pages as a grid of tiles, then the settings that leave the top bar on a phone.
       const tile = (attr, icon, label) => `<button class="more-t" ${attr}>${ic(icon)}<span>${label}</span></button>`;
-      U.sheet(`<h2 class="sh-h">More</h2><nav class="more-grid" aria-label="More pages">${items.map(i => tile(`data-go="${i}"`, U.NAV[i][1], U.NAV[i][0])).join('')}${tile('data-go="notifs"', 'bell', 'Notifications')}</nav>
+      U.sheet(`<h2 class="sh-h">More</h2>${U.hatLink()}<nav class="more-grid" aria-label="More pages">${items.map(i => tile(`data-go="${i}"`, U.NAV[i][1], U.NAV[i][0])).join('')}${tile('data-go="notifs"', 'bell', 'Notifications')}</nav>
         <div class="more-nav"><button class="nl" data-act="colours">${ic('palette')}<span>Colours, light or dark</span></button><button class="nl" data-act="motion-toggle">${ic('spark')}<span>${P.motion === 'on' ? 'Turn animations off' : 'Turn animations on'}</span></button><button class="nl" data-act="roles">${ic('swap')}<span>Switch role</span></button><button class="nl" data-act="reset">${ic('undo')}<span>Reset demo</span></button></div>`);
     },
     'motion-toggle'() { U.closeSheet(); $('#motionBtn').click(); },
     back() { U.back(); },
+    // Step into your own club as the club post you hold there, then back to your district or group seat.
+    'hat-club'() {
+      const h = U.personaHome(); if (!h || P.hat) return;
+      P.hat = { from: P.role, club: h.club.id, k: h.k, name: h.name, post: h.post };
+      P.role = U.CLUB_ROLE[h.post] || 'mem';
+      save(); U.closeSheet(); U.resetTrail(); U.go('home'); U.toast(`Your club view: ${h.post}, ${h.club.name}`);
+    },
+    'hat-back'() {
+      if (!P.hat) return;
+      const from = P.hat.from; P.role = from; P.hat = null;
+      save(); U.closeSheet(); U.resetTrail(); U.go('home'); U.toast(`Back to ${U.ROLES[from].label}`);
+    },
     reset() {
       U.sheet(`<h2 class="sh-h">Reset the demo?</h2><p class="note">This clears what you changed in this browser: reports sent, payments, bookings and new items. The sample data comes back.</p><div class="row-btns"><button class="btn ink" data-act="reset-yes">Reset demo</button><button class="btn" data-act="close">Keep my changes</button></div>`);
     },
@@ -82,6 +94,8 @@
         <label class="field" for="dsS"><span>Scope</span><input id="dsS" name="scope" placeholder="Madras Week heritage walks"></label>
         <label class="field" for="dsH"><span>Given to</span><input id="dsH" name="holder" placeholder="Search a member" list="dsPeople"></label>
         <datalist id="dsPeople">${[0, 40, 400, 900, 3100].map(i => `<option value="${esc(D.member(i).name)}">`).join('')}</datalist>
+        <label class="field" for="dsC"><span>Their club</span><select id="dsC" name="club" required><option value="">Pick the club they are a member of</option>${U.activeClubs().slice().sort((a, b) => a.name.localeCompare(b.name)).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>
+        <p class="note">Everyone in the district is a member of a club. A district post is held on top of it.</p>
         <div class="form-act"><button class="btn ink" type="submit">Add post</button></div></form>`);
     },
 
@@ -170,6 +184,7 @@
         <button class="btn ink full" data-act="close">Register</button><p class="note">This is how a quick event page looks. Chairs fill four fields and it is live.</p></div></div>`, { wide: true });
     },
     'new-event'() {
+      if (!U.can.createEvent()) return;
       U.sheet(`<h2 class="sh-h">New event</h2><form data-form="event" class="form">
         <fieldset class="field"><legend>Start from</legend>${chipRow('kind', ['Flagship', 'Training', 'Service', 'Awards', 'Culturals', 'Custom'], 'Custom')}</fieldset>
         <label class="field" for="evN"><span>Name</span><input id="evN" name="name" required placeholder="Madras Week heritage walk" autofocus></label>
@@ -192,6 +207,7 @@
 
     /* initiatives */
     'new-initiative'() {
+      if (!U.can.createInitiative()) return;
       U.sheet(`<h2 class="sh-h">New initiative</h2><form data-form="init" class="form">
         <fieldset class="field"><legend>Type</legend>${chipRow('type', ['Campaign', 'Directory', 'Competition', 'Collection'], 'Campaign')}</fieldset>
         <label class="field" for="inN"><span>Name</span><input id="inN" name="name" required placeholder="Books for Corporation schools" autofocus></label>
@@ -241,7 +257,7 @@
     },
     desig(f) {
       const d = new FormData(f);
-      P.desig.push({ id: 900 + P.desig.length, team: 'Added this season', title: d.get('title'), tpl: d.get('tpl'), scope: d.get('scope') || 'District', holder: d.get('holder') || 'Not assigned yet', isNew: true });
+      P.desig.push({ id: 900 + P.desig.length, team: 'Added this season', title: d.get('title'), tpl: d.get('tpl'), scope: d.get('scope') || 'District', holder: d.get('holder') || 'Not assigned yet', holderClub: Number(d.get('club')) || null, isNew: true });
       save(); U.closeSheet(); rerender(); U.toast('Post added');
     },
     return(f) {
@@ -257,6 +273,7 @@
       U.closeSheet(); rerender(); U.toast('Marked as a quiet month');
     },
     event(f) {
+      if (!U.can.createEvent()) return;
       const d = new FormData(f);
       const dt = new Date(d.get('date') || '2027-01-10');
       const m = (dt.getMonth() + 6) % 12;
@@ -270,6 +287,7 @@
       save(); U.closeSheet(); rerender(); U.toast('Committee added');
     },
     init(f) {
+      if (!U.can.createInitiative()) return;
       const d = new FormData(f);
       P.inits.unshift({ id: 'i' + Date.now(), name: d.get('name'), type: d.get('type') || 'Campaign', owner: d.get('owner'), unit: d.get('unit') || 'items', goal: Number(d.get('goal')) || 100, now: 0, clubs: 0, sw: Number(d.get('sw')) || 8, isNew: true });
       save(); U.closeSheet(); go('initiatives'); U.toast('Live for every club');

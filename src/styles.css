@@ -1237,3 +1237,21 @@ a.spn-card:hover { transform: translateY(-3px); box-shadow: var(--edge), var(--c
 .spn-sum b { color: var(--ink-2); font-size: 1rem; }
 .spn-sum span { font-size: 0.84rem; }
 @media (max-width: 40rem) { .spn-g-open { grid-template-columns: minmax(0, 1fr); } .spn-sum { min-height: 0; flex-direction: row; justify-content: flex-start; gap: 12px; padding: 16px 18px; } .spn-sum span { margin-left: auto; } }
+
+/* The rolling Rotaract wheel: report tracker and group race. Rotation follows --p, the same value that moves it. */
+.roller { position: absolute; display: block; border-radius: 50%; background: var(--cotton); box-shadow: 0 0 0 2px var(--cotton), 0 4px 10px -3px oklch(var(--shadow-c) / 0.45); }
+.roller .rl-g { display: block; width: 100%; height: 100%; transform: rotate(calc(var(--p, 0) * 7.2deg)); transition: transform 1000ms var(--ease); }
+.trk-roll { left: -16px; top: 22px; width: 32px; height: 32px; }
+.race-roll { left: 6px; top: 50%; width: 26px; height: 26px; margin-top: -13px; }
+.runner .rl-g { transition: none; }
+.race .ln-v { left: 40px; }
+.trk-stops .dot { margin-top: -19px; }
+
+/* An official's own club: a chip in the sidebar or More, and a bar while in club view */
+.hat-chip { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; margin-bottom: 10px; padding: 8px 12px; border: 1px dashed color-mix(in oklch, var(--accent) 45%, var(--rule-2)); border-radius: var(--r-ctl); background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 0.84rem; text-align: left; line-height: 1.3; }
+.hat-chip.on { border-style: solid; }
+.hat-chip .ic { flex: none; }
+.hat-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-radius: var(--r-ctl); background: var(--accent-soft); color: var(--ink); font-size: 0.92rem; }
+.hat-bar > .ic { color: var(--accent); flex: none; }
+.hat-bar > span { flex: 1 1 260px; }
+#sheetBody > .hat-chip { margin: 0; }
