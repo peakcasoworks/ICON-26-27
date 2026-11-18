@@ -357,7 +357,7 @@ Here are the member details:
   A['accent-set'] = el => { if (!canAccent()) return; P.accent = el.dataset.v; save(); U.applyTheme(); A.colours(); };
 
   /* =====================================================================
-     The public start page: about, history, events, gallery, leadership, clubs, contact.
+     The public start page: about, events, gallery, leadership, clubs, contact.
      ===================================================================== */
   const GAL = [
     ['orient', 'District Orientation', '6 Jul 2026', 'Training'], ['dols', 'DOLS', '13 Jul 2026', 'Training'], ['assembly', 'District Assembly', '10 Aug 2026', 'Flagship'],
@@ -421,7 +421,7 @@ Here are the member details:
   A.scroll = el => { const t = U.$(el.dataset.t); if (t) window.scrollTo({ top: t.getBoundingClientRect().top + window.scrollY - 64, behavior: U.calm() ? 'auto' : 'smooth' }); };
   F.contact = f => { f.reset(); U.toast('Message sent to the district office (demo only, nothing is stored)'); };
 
-  U.landingNav = () => `<nav class="land-nav" aria-label="Sections"><span class="ln-brand">${U.gear()}<b>${P.season === 'vibe' ? 'VIBE' : 'ICON'}</b></span><div class="ln-links">${[['about', 'About'], ['board', 'Leaderboard'], ['how', 'How it works'], ['history', 'History'], ['events', 'Events'], ['gallery', 'Gallery'], ['team', 'Leadership'], ['clubs-map', 'Clubs'], ['contact', 'Contact']].map(([id, l]) => `<button data-act="scroll" data-t="#${id}">${l}</button>`).join('')}</div><button class="btn sm ink" data-act="scroll" data-t="#roles">Sign in</button></nav>`;
+  U.landingNav = () => `<nav class="land-nav" aria-label="Sections"><span class="ln-brand">${U.gear()}<b>${P.season === 'vibe' ? 'VIBE' : 'ICON'}</b></span><div class="ln-links">${[['about', 'About'], ['board', 'Leaderboard'], ['events', 'Events'], ['gallery', 'Gallery'], ['sponsors', 'Sponsors'], ['team', 'Leadership'], ['clubs-map', 'Clubs'], ['contact', 'Contact']].map(([id, l]) => `<button data-act="scroll" data-t="#${id}">${l}</button>`).join('')}</div><button class="btn sm ink" data-act="scroll" data-t="#roles">Sign in</button></nav>`;
 
   let TOPM = null;
   const topMembers = () => { if (!TOPM) { const all = []; for (let i = 0; i < D.memberCount; i++) all.push(D.member(i)); TOPM = all.sort((a, b) => b.points - a.points || a.i - b.i).slice(0, 5); } return TOPM; };
@@ -446,21 +446,6 @@ Here are the member details:
         <div class="grid-2"><section class="card"><div class="card-h"><h2>Members</h2><span class="muted">Top 5</span></div><ol class="rank">${topMembers().map((m, i) => `<li class="${i < 3 ? 'medal m' + i : ''}"><span class="rk fig">${i + 1}</span><span class="rk-n"><b>${esc(m.name)}</b><small class="sub">${esc(m.club.name)}</small></span><b class="fig">${m.points}</b></li>`).join('')}</ol></section>
         <section class="card"><div class="card-h"><h2>Clubs</h2><span class="muted">Top 5 by scorecard</span></div><ol class="rank">${topClubs().map((x, i) => `<li class="${i < 3 ? 'medal m' + i : ''}"><span class="rk fig">${i + 1}</span><span class="rk-n"><b>${esc(x.c.name)}</b><small class="sub">${x.c.type}, Group ${U.groupOf(x.c)}</small></span><span class="rk-bar"><i style="--w:${(x.s / 100).toFixed(2)}"></i></span><b class="fig">${x.s}</b></li>`).join('')}</ol></section></div>
       </div></section>
-      <section id="how" class="sec alt"><div class="sec-in">
-        <span class="eyebrow">How it works</span><h2 class="sec-h">Three steps, one platform</h2>
-        <div class="trio"><div class="card"><span class="eyebrow">Step 1</span><b>Scan in</b><p class="note">Show up to a district event and scan the QR. The sergeant's scan logs your check-in at once.</p></div><div class="card"><span class="eyebrow">Step 2</span><b>Earn points</b><p class="note">Punctuality bonuses, event turnout, on-time reports and initiatives all build your score.</p></div><div class="card"><span class="eyebrow">Step 3</span><b>Climb the board</b><p class="note">See where you and your club stand across the district, and who leads the group race.</p></div></div>
-        <ul class="feat">${['QR attendance: a personal pass, sergeant scans land instantly', 'Live leaderboard: punctuality and turnout, ranked', 'Club management: officers, rosters and posts, kept by each club', 'Project reports: the secretary or president sends, the GRS and DRS review', 'Club wallet: dues and event seats, paid in one go'].map(t => `<li>${ic('check')}<span>${t}</span></li>`).join('')}</ul>
-        <div class="row-btns"><button class="btn ink lg" data-act="scroll" data-t="#roles">Sign in${ic('chev')}</button></div>
-      </div></section>
-      <section id="history" class="sec"><div class="sec-in">
-        <span class="eyebrow">History</span><h2 class="sec-h">From one club to a district of clubs</h2>
-        <ol class="timeline big">
-          <li class="done"><b>1905</b><span>Paul Harris founds the first Rotary club in Chicago. Its motto, Service Above Self, still guides Rotaract.</span></li>
-          <li class="done"><b>1968</b><span>The Rotary Club of Charlotte North in North Carolina sponsors the first Rotaract club. Rotary International adopts Rotaract as its programme for young adults. The name joins Rotary and action.</span></li>
-          <li class="done"><b>Today</b><span>Rotaract District 3233 runs ${act.length} clubs in seven groups across Chennai. VIBE 2026-27 is the current year, with QR check-ins at every district event.</span></li>
-          <li><b>1 July 2027</b><span>ICON 2027-28 takes over. Clubs, members and history carry over, and the new DRR sets the season's look.</span></li>
-        </ol>
-        <p class="note edit-note">The district's own milestones go here: charter year, past DRRs, flagship events and records. The DRR office can add them from the Season page. The district entries above are placeholders for the demo.</p></div></section>
       <section id="events" class="sec alt"><div class="sec-in">
         <span class="eyebrow">Events</span><h2 class="sec-h">Coming up</h2>
         <div class="ev-grid">${upcoming.map(e => `<div class="ev-card static"><span class="ev-top"><span class="ev-kind">${esc(e.kind)}</span>${U.pill(e.status, e.status === 'Planning' ? 'neutral' : 'warn')}</span><b class="ev-name">${esc(e.name)}</b><span class="ev-when">${esc(e.date)}</span>${e.full ? `<small class="sub">${esc(e.full)}</small>` : ''}<span class="ev-chair">Clubs register through their GRR or GRS</span></div>`).join('')}</div>
@@ -469,6 +454,7 @@ Here are the member details:
         <span class="eyebrow">Gallery</span><h2 class="sec-h">The year in pictures</h2>
         <div id="galBox">${galleryHTML()}</div>
         <p class="note edit-note">Sample drawings for the demo. Event chairs and the photography team upload the real pictures, and each album follows its event.</p></div></section>
+      ${U.sponsorsHTML()}
       <section id="team" class="sec alt"><div class="sec-in">
         <span class="eyebrow">Leadership</span><h2 class="sec-h">The people who run the district</h2>
         <div class="people-grid">${office.map(d => `<div class="card person-c"><span class="pp big">${esc(d.holder.split(' ').map(x => x[0]).join(''))}</span><span class="pc-t"><b>${esc(d.holder)}</b><small class="sub">${esc(d.title)}</small></span></div>`).join('')}</div>

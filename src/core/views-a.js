@@ -268,6 +268,7 @@
       </section>`).join('')}
     </div>
     <section class="card callout">${ic('palette')}<p><b>District colour.</b> The site is white and pink, with a plum dark mode. The DRR and the DRS pick the shade of pink everyone sees.</p><button class="btn" data-act="colours">Choose the pink</button></section>
+    ${U.sponsorAdmin()}
     <section class="card">
       <div class="card-h"><h2>Handover to the next DRR</h2></div>
       <ol class="timeline">
