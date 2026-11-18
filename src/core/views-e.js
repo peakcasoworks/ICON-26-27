@@ -43,12 +43,10 @@
   /* =====================================================================
      Roster: add a member, add your own post, import.
      ===================================================================== */
-  const COLS = { all: ['full_name', 'email', 'phone', 'post', 'ri_id', 'date_joined'], college: ['department', 'year_of_study'], community: ['profession', 'organisation'] };
-  const colsFor = club => COLS.all.concat(club.type === 'College' ? COLS.college : COLS.community);
-  const SAMPLE = {
-    College: [['Anitha R.', 'anitha@example.com', '9876500001', 'President', 'RI-0000001', '2025-07-01', 'Mechanical', '3'], ['Karthik S.', '', '9876500002', 'Secretary', '', '2025-07-01', 'Computer Science', '3'], ['Meena V.', 'meena@example.com', '', 'Member', '', '2026-08-12', 'Commerce', '2']],
-    Community: [['Anitha R.', 'anitha@example.com', '9876500001', 'President', 'RI-0000001', '2019-07-01', 'Architect', 'Studio Madras'], ['Karthik S.', '', '9876500002', 'Secretary', '', '2020-07-01', 'Software engineer', 'Zoho'], ['Meena V.', 'meena@example.com', '', 'Member', '', '2024-08-12', 'Teacher', 'Corporation school']]
-  };
+  // Only what the club needs to run: who they are, how to reach them, their post, their RA member ID and when they joined.
+  const COLS = ['full_name', 'email', 'phone', 'post', 'ra_member_id', 'date_joined'];
+  const colsFor = () => COLS;
+  const SAMPLE = [['Anitha R.', 'anitha@example.com', '9876500001', 'President', 'RA-0000001', '2025-07-01'], ['Karthik S.', '', '9876500002', 'Secretary', '', '2025-07-01'], ['Meena V.', 'meena@example.com', '', 'Member', '', '2026-08-12']];
   const postNeeded = club => { const have = new Set(U.rosterOf(club).map(m => m.role)); return U.POSTS.MANDATORY.filter(p => !have.has(p)); };
 
   A['add-member'] = el => {
@@ -59,9 +57,9 @@
       <form data-form="member" class="form">
         <label class="field" for="amN"><span>Full name</span><input id="amN" name="name" required autofocus></label>
         <div class="field-row"><label class="field" for="amE"><span>Email</span><input id="amE" name="email" type="email" placeholder="name@example.com"></label><label class="field" for="amP"><span>Phone</span><input id="amP" name="phone" inputmode="tel" placeholder="10-digit mobile"></label></div>
-        <label class="field" for="amR"><span>RI ID from My Rotary, if they have one</span><input id="amR" name="ri" placeholder="Leave empty if not known yet"></label>
-        ${college ? `<div class="field-row"><label class="field" for="amD"><span>Department</span><input id="amD" name="dept" placeholder="Mechanical"></label><label class="field" for="amY"><span>Year of study</span><select id="amY" name="year"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>Alumnus</option></select></label></div>`
-          : `<div class="field-row"><label class="field" for="amD"><span>Profession</span><input id="amD" name="dept" placeholder="Architect"></label><label class="field" for="amO"><span>Organisation</span><input id="amO" name="org" placeholder="Where they work"></label></div>`}
+        <label class="field" for="amR"><span>RA member ID, if they have one</span><input id="amR" name="ra" placeholder="Leave empty if they do not have one yet" data-on="am-ra" autocomplete="off"></label>
+        <fieldset class="field am-paid"><legend>Is their membership paid for this year?</legend>${chipRow('paid', ['Yes, paid', 'Not paid yet'], '')}
+          <p class="note" id="amHint">Only paid members count in the district total. Unpaid members stay on your club roster.</p></fieldset>
         <fieldset class="field"><legend>Post</legend>${chipRow('post', posts, preset)}</fieldset>
         <label class="field" for="amC"><span>Or a post of your own, optional</span><input id="amC" name="custom" placeholder="Editor, PRO, Chief Whip ..."></label>
         <div class="form-act"><button class="btn ink" type="submit">Add member</button><span class="muted">They get a link to set up their pass.</span></div></form>`);
@@ -71,12 +69,24 @@
     const name = (d.get('name') || '').trim(), email = (d.get('email') || '').trim(), phone = (d.get('phone') || '').trim();
     if (!name) return;
     if (!email && !phone) { U.toast('Add an email or a phone so they can get their pass', 'info'); return; }
+    const ra = (d.get('ra') || '').trim(), paidAns = d.get('paid');
+    if (!ra && !paidAns) { U.toast('Say whether their membership is paid', 'info'); return; }
+    const paid = ra || paidAns === 'Yes, paid' ? 'yes' : 'no';
     let post = (d.get('custom') || '').trim() || d.get('post') || 'Member';
     if (!U.allPosts().includes(post)) { P.posts[club.id] = (P.posts[club.id] || []).concat([post]); }
-    P.members.push({ club: club.id, name, email, phone, ri: (d.get('ri') || '').trim(), post, dept: d.get('dept') || '', year: d.get('year') || '', org: d.get('org') || '', joined: new Date().getFullYear() });
+    P.members.push({ club: club.id, name, email, phone, ra, paid, post, joined: new Date().getFullYear() });
     save(); U.closeSheet(); U.rerender();
-    U.toast(`${name} added as ${post}. They get a link to set up their pass.`);
+    U.toast(paid === 'yes' ? `${name} added as ${post}. Counted in the district total as a paid member.` : `${name} added to your roster as ${post}. They count in the district total once their membership is paid.`);
   };
+  // An RA member ID means they paid this year or last, so the paid answer is set to Yes and locked while the ID is there.
+  I['am-ra'] = el => {
+    const f = el.form, has = !!el.value.trim(), hid = f.querySelector('input[name="paid"]'), hint = f.querySelector('#amHint');
+    f.querySelectorAll('.am-paid .chip').forEach(c => { const yes = c.dataset.v === 'Yes, paid'; if (has) { c.classList.toggle('on', yes); c.setAttribute('aria-checked', yes); } c.disabled = has && !yes; });
+    if (has) hid.value = 'Yes, paid';
+    hint.textContent = has ? 'Has an RA member ID, so they paid membership this year or last. Counted as a paid member.' : 'Only paid members count in the district total. Unpaid members stay on your club roster.';
+  };
+  // A club can mark an unpaid member as paid later, and they join the district total.
+  A['mem-paid'] = el => { const x = P.members[Number(el.dataset.k)]; if (!x || !U.can.roster()) return; x.paid = 'yes'; save(); U.rerender(); U.toast(`${x.name} is now a paid member and counts in the district total.`); };
   A['add-post'] = () => {
     U.sheet(`<h2 class="sh-h">Add your own post</h2><p class="note">Every board is different. The required posts stay, and you can add the ones your club uses.</p>
       <form data-form="post" class="form"><label class="field" for="apN"><span>Post name</span><input id="apN" name="title" required placeholder="Editor, PRO, Chief Whip, Club Mentor" autofocus></label>
@@ -105,7 +115,7 @@
     row.push(cur); if (row.some(x => x.trim())) rows.push(row);
     return rows;
   }
-  const ALIAS = { name: 'full_name', fullname: 'full_name', membername: 'full_name', mobile: 'phone', mobilenumber: 'phone', phonenumber: 'phone', contact: 'phone', emailid: 'email', mail: 'email', designation: 'post', position: 'post', role: 'post', riid: 'ri_id', rimemberid: 'ri_id', rotaryid: 'ri_id', myrotaryid: 'ri_id', riidmyrotary: 'ri_id', joined: 'date_joined', datejoined: 'date_joined', joiningdate: 'date_joined', branch: 'department', dept: 'department', year: 'year_of_study', yearofstudy: 'year_of_study', occupation: 'profession', company: 'organisation', organization: 'organisation' };
+  const ALIAS = { name: 'full_name', fullname: 'full_name', membername: 'full_name', mobile: 'phone', mobilenumber: 'phone', phonenumber: 'phone', contact: 'phone', emailid: 'email', mail: 'email', designation: 'post', position: 'post', role: 'post', riid: 'ra_member_id', rimemberid: 'ra_member_id', rotaryid: 'ra_member_id', myrotaryid: 'ra_member_id', riidmyrotary: 'ra_member_id', raid: 'ra_member_id', ramemberid: 'ra_member_id', memberid: 'ra_member_id', rotaractid: 'ra_member_id', joined: 'date_joined', datejoined: 'date_joined', joiningdate: 'date_joined', branch: 'department', dept: 'department', year: 'year_of_study', yearofstudy: 'year_of_study', occupation: 'profession', company: 'organisation', organization: 'organisation' };
   const norm = h => { const k = h.toLowerCase().replace(/[^a-z0-9]/g, ''); return ALIAS[k] || h.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_'); };
   let IMP = null;
   function readRoster(text, club) {
@@ -114,7 +124,7 @@
     const cols = table[0].map(norm);
     if (!cols.includes('full_name')) return { error: 'There is no full_name column. Download the template to see the columns we need.' };
     const posts = U.allPosts(), lower = posts.map(p => p.toLowerCase());
-    const existing = U.rosterOf(club), seen = new Set(P.members.filter(m => m.club === club.id).flatMap(m => [m.email, m.phone, m.ri].filter(Boolean)));
+    const existing = U.rosterOf(club), seen = new Set(P.members.filter(m => m.club === club.id).flatMap(m => [m.email, m.phone, m.ra || m.ri].filter(Boolean)));
     const out = [], bad = [];
     table.slice(1).forEach((r, i) => {
       const o = {}; cols.forEach((c, k) => { o[c] = (r[k] || '').trim(); });
@@ -122,7 +132,7 @@
       if (!o.full_name) probs.push('no name');
       if (!o.email && !o.phone) probs.push('no email or phone');
       if (o.email && !/^\S+@\S+\.\S+$/.test(o.email)) probs.push('email looks wrong');
-      const keys = [o.email, o.phone, o.ri_id].filter(Boolean);
+      const keys = [o.email, o.phone, o.ra_member_id].filter(Boolean);
       if (keys.some(k => seen.has(k))) probs.push('already in the file or the roster');
       if (existing.some(m => o.full_name && m.name.toLowerCase() === o.full_name.toLowerCase())) probs.push('same name already in the roster');
       let post = o.post || 'Member', note = '';
@@ -130,14 +140,13 @@
       if (at > -1) post = posts[at]; else { note = `post "${post}" is new, it will be added as your own post`; }
       if (probs.length) { bad.push({ line: i + 2, name: o.full_name || '(blank)', why: probs.join(', ') }); return; }
       keys.forEach(k => seen.add(k));
-      out.push({ club: club.id, name: o.full_name, email: o.email, phone: o.phone, ri: o.ri_id, post, dept: o.department || o.profession || '', year: o.year_of_study || '', org: o.organisation || '', joined: Number((o.date_joined || '').slice(0, 4)) || new Date().getFullYear(), note });
+      out.push({ club: club.id, name: o.full_name, email: o.email, phone: o.phone, ra: o.ra_member_id, paid: o.ra_member_id ? 'yes' : '', post, joined: Number((o.date_joined || '').slice(0, 4)) || new Date().getFullYear(), note });
     });
     return { rows: out, bad };
   }
-  const templateRows = club => [colsFor(club)].concat(SAMPLE[club.type === 'College' ? 'College' : 'Community']);
+  const templateRows = () => [COLS].concat(SAMPLE);
   function promptFor(club) {
     const cols = colsFor(club).join(',');
-    const extra = club.type === 'College' ? 'department (for example Mechanical) and year_of_study (1 to 5, or Alumnus)' : 'profession and organisation (where they work)';
     return `You are helping me prepare the member roster of a Rotaract club for the ICON platform of Rotaract District 3233.
 
 Turn the member details I paste at the end into a CSV file.
@@ -150,9 +159,8 @@ Rules:
 - full_name: the person's name as they write it.
 - email and phone: copy them as given. Phone is the 10-digit Indian mobile number, without +91 or spaces. If one is missing, leave it empty. Never invent an email or a phone number. Every member needs at least one of the two.
 - post: one of ${U.allPosts().join(', ')}. If someone holds a post that is not in this list, write it as they say it. If no post is given, write Member.
-- ri_id: the member's Rotary International ID from the My Rotary website (my.rotary.org). If they do not have one or I did not give it, leave it empty. Never guess it.
+- ra_member_id: the member's RA member ID, if they have one. Having one means they paid membership this year or last. If they do not have one or I did not give it, leave it empty. Never guess it.
 - date_joined: the date they joined the club, as YYYY-MM-DD. If only the year is known, use YYYY-07-01. If unknown, leave it empty.
-- ${extra}.
 - Wrap any value that has a comma in double quotes.
 - Leave out anything not in the header: no addresses, no dates of birth, no blood groups, no Aadhaar or other IDs.
 - After the code block do not add notes.
@@ -160,15 +168,15 @@ Rules:
 Our club is ${club.type === 'College' ? 'a college-based' : 'a community-based'} Rotaract club.
 
 Here are the member details:
-[paste your list here: names, phone numbers, emails, posts, RI IDs from My Rotary]`;
+[paste your list here: names, phone numbers, emails, posts, RA member IDs]`;
   }
   A.import = () => {
     const club = U.myClub(), cols = colsFor(club);
     const req = new Set(['full_name', 'post']);
-    const note = { full_name: 'Required', email: 'Email or phone', phone: 'Email or phone', post: 'Required. Your club\'s posts', ri_id: 'From My Rotary. Leave empty if unknown', date_joined: 'YYYY-MM-DD', department: 'College clubs', year_of_study: '1 to 5, or Alumnus', profession: 'Community clubs', organisation: 'Where they work' };
+    const note = { full_name: 'Required', email: 'Email or phone', phone: 'Email or phone', post: 'Required. Your club\'s posts', ra_member_id: 'Leave empty if they have none. With an ID they count as paid', date_joined: 'YYYY-MM-DD' };
     U.sheet(`<h2 class="sh-h">Import your roster</h2>
       <p class="note">Upload a CSV with these columns. Open your Excel sheet and use Save as, CSV. Anything we cannot match is listed so you can fix it, and nothing is lost.</p>
-      <div class="tbl-wrap tight"><table class="tbl"><thead><tr>${cols.map(c => `<th>${c}${req.has(c) ? ' *' : ''}</th>`).join('')}</tr></thead><tbody>${SAMPLE[club.type === 'College' ? 'College' : 'Community'].map(r => `<tr>${r.map(v => `<td>${esc(v) || '<span class="muted">empty</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      <div class="tbl-wrap tight"><table class="tbl"><thead><tr>${cols.map(c => `<th>${c}${req.has(c) ? ' *' : ''}</th>`).join('')}</tr></thead><tbody>${SAMPLE.map(r => `<tr>${r.map(v => `<td>${esc(v) || '<span class="muted">empty</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
       <ul class="cols-note">${cols.map(c => `<li><b>${c}</b><span>${note[c]}</span></li>`).join('')}</ul>
       <div class="row-btns"><button class="btn" data-act="tpl-download">${ic('upload')}Download template</button><button class="btn" data-act="gpt-open">${ic('spark')}Use ChatGPT to prepare it</button></div>
       <label class="file big" for="impF">${ic('upload')}<span id="impL">Choose your CSV file</span><input id="impF" type="file" accept=".csv,text/csv" data-on="import-file"></label>
@@ -178,7 +186,7 @@ Here are the member details:
   A['gpt-open'] = () => {
     const club = U.myClub(), text = promptFor(club);
     U.sheet(`<h2 class="sh-h">Prepare your roster with ChatGPT</h2>
-      <ol class="ladder"><li><b>1</b><span>Copy this prompt and paste it into ChatGPT.</span></li><li><b>2</b><span>Under it, paste what you have: a WhatsApp list, a sheet, or typed names. Add each person's RI ID from My Rotary if you have it.</span></li><li><b>3</b><span>Copy the CSV it gives back into a file, save it as .csv, and upload it here.</span></li></ol>
+      <ol class="ladder"><li><b>1</b><span>Copy this prompt and paste it into ChatGPT.</span></li><li><b>2</b><span>Under it, paste what you have: a WhatsApp list, a sheet, or typed names. Add each person's RA member ID if they have one.</span></li><li><b>3</b><span>Copy the CSV it gives back into a file, save it as .csv, and upload it here.</span></li></ol>
       <textarea class="prompt" id="gptText" readonly rows="12">${esc(text)}</textarea>
       <div class="row-btns"><button class="btn ink" data-act="gpt-copy">${ic('check')}Copy prompt</button><a class="btn" id="gptLink" href="https://chatgpt.com/?q=${encodeURIComponent(text)}" target="_blank" rel="noopener noreferrer">${ic('link')}Open ChatGPT with the prompt</a><button class="btn" data-act="import">Back</button></div>
       <p class="note">Share only what the columns ask for. Do not paste addresses, birth dates or ID numbers. ChatGPT is a separate service, so check the CSV it gives you before you upload it.</p>`);
@@ -198,7 +206,7 @@ Here are the member details:
       if (res.error) { IMP = null; box.innerHTML = `<p class="callout warn">${ic('alert')}${esc(res.error)}</p>`; return; }
       IMP = res.rows;
       box.innerHTML = `<div class="imp-sum"><span>${U.pill(res.rows.length + ' ready', 'ok')}</span>${res.bad.length ? `<span>${U.pill(res.bad.length + ' need a fix', 'bad')}</span>` : ''}</div>
-        ${res.rows.length ? `<div class="tbl-wrap tight"><table class="tbl"><thead><tr><th>Name</th><th>Post</th><th>Contact</th><th>RI ID</th></tr></thead><tbody>${res.rows.slice(0, 5).map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.post)}${r.note ? `<small class="sub">${esc(r.note)}</small>` : ''}</td><td>${esc(r.email || r.phone)}</td><td class="fig">${esc(r.ri) || '<span class="muted">pending</span>'}</td></tr>`).join('')}</tbody></table></div><p class="note">${res.rows.length > 5 ? `Showing 5 of ${res.rows.length}. ` : ''}Duplicates are skipped.</p>` : ''}
+        ${res.rows.length ? `<div class="tbl-wrap tight"><table class="tbl"><thead><tr><th>Name</th><th>Post</th><th>Contact</th><th>RA member ID</th></tr></thead><tbody>${res.rows.slice(0, 5).map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.post)}${r.note ? `<small class="sub">${esc(r.note)}</small>` : ''}</td><td>${esc(r.email || r.phone)}</td><td class="fig">${esc(r.ra) || '<span class="muted">pending</span>'}</td></tr>`).join('')}</tbody></table></div><p class="note">${res.rows.length > 5 ? `Showing 5 of ${res.rows.length}. ` : ''}Duplicates are skipped.</p>` : ''}
         ${res.bad.length ? `<details class="imp-bad"><summary>${res.bad.length} rows to fix in your file</summary><ul class="kv">${res.bad.slice(0, 20).map(b => `<li><span>Line ${b.line}: ${esc(b.name)}</span><small class="sub">${esc(b.why)}</small></li>`).join('')}</ul></details>` : ''}
         <button class="btn ink full" data-act="import-go" ${res.rows.length ? '' : 'disabled'}>Import ${res.rows.length} members</button>`;
     };
@@ -225,11 +233,11 @@ Here are the member details:
   ];
   function allPeople() {
     const rows = [];
-    for (let i = 0; i < D.memberCount; i++) { const m = D.member(i); rows.push([m.name, m.club.name, 'Group ' + U.groupOf(m.club), m.role, m.id, m.points, m.joined]); }
-    P.members.forEach(x => { const c = U.club(x.club); rows.push([x.name, c.name, 'Group ' + U.groupOf(c), x.post, x.ri || 'RI ID pending', 0, x.joined]); });
+    for (let i = 0; i < D.memberCount; i++) { const m = D.member(i); rows.push([m.name, m.club.name, 'Group ' + U.groupOf(m.club), m.role, m.id, m.points, m.joined, 'Paid']); }
+    P.members.forEach(x => { const c = U.club(x.club); rows.push([x.name, c.name, 'Group ' + U.groupOf(c), x.post, (x.ra || x.ri || '').trim() || 'No RA ID yet', 0, x.joined, U.isPaidMember(x) ? 'Paid' : 'Not paid']); });
     return rows;
   }
-  SETS[1][3] = () => [['Name', 'Club', 'Group', 'Post', 'ID', 'Points', 'Joined']].concat(allPeople());
+  SETS[1][3] = () => [['Name', 'Club', 'Group', 'Post', 'RA member ID', 'Points', 'Joined', 'Membership']].concat(allPeople());
   A['export-data'] = () => {
     U.sheet(`<h2 class="sh-h">Export district data</h2><p class="note">Plain CSV files that open in Excel or Google Sheets. Use them for the year-end handover, audits or the awards.</p>
       <ul class="kv export">${SETS.map(s => `<li><span><b>${s[1]}</b><small class="sub">${s[2]}</small></span><button class="btn sm" data-act="export-one" data-k="${s[0]}">Download</button></li>`).join('')}</ul>
@@ -428,13 +436,13 @@ Here are the member details:
   const topClubs = () => U.scoreRank().slice(0, 5);
   U.landingSections = () => {
     const act = U.activeClubs(), college = act.filter(c => c.type === 'College').length;
-    const memC = act.filter(c => c.type === 'College').reduce((a, c) => a + c.members, 0), memK = act.filter(c => c.type === 'Community').reduce((a, c) => a + c.members, 0);
+    const memC = act.filter(c => c.type === 'College').reduce((a, c) => a + U.paidMembers(c), 0), memK = act.filter(c => c.type === 'Community').reduce((a, c) => a + U.paidMembers(c), 0);
     const upcoming = D.EVENTS.filter(e => e.status !== 'Done').slice(0, 4);
     const office = D.designations.filter(d => d.team === 'DRR office').slice(0, 4).concat(D.designations.filter(d => d.title === 'District Rotaract Secretary'));
     return `<section id="about" class="sec"><div class="sec-in">
         <span class="eyebrow">About</span><h2 class="sec-h">Service Above Self, in ${act.length} clubs across Chennai</h2>
-        <p class="lede">Rotaract District 3233 brings together ${num(D.memberCount)} young people in community and college clubs. They serve through the four avenues of Rotaract: club, community, professional and international service. ICON is the district's one home for what they do: monthly reports, fees, events, initiatives and recognition.</p>
-        <div class="stats flat">${U.fig(act.length, 'Active clubs', `${act.length - college} community, ${college} college`)}${U.fig(D.memberCount, 'Rotaractors')}${U.fig(7, 'Groups', 'Led by a GRR and a GRS each')}${U.fig(4, 'Avenues of service')}</div>
+        <p class="lede">Rotaract District 3233 brings together ${num(U.paidTotal())} paid members in community and college clubs. They serve through the four avenues of Rotaract: club, community, professional and international service. ICON is the district's one home for what they do: monthly reports, fees, events, initiatives and recognition.</p>
+        <div class="stats flat">${U.fig(act.length, 'Active clubs', `${act.length - college} community, ${college} college`)}${U.fig(U.paidTotal(), 'Rotaractors', 'Paid members this year')}${U.fig(7, 'Groups', 'Led by a GRR and a GRS each')}${U.fig(4, 'Avenues of service')}</div>
         <div class="trio">
           <div class="card"><b>One place for clubs</b><p class="note">Secretaries log projects the day they happen. The monthly report writes itself and goes to the GRS and the DRS in one send.</p></div>
           <div class="card"><b>Fees without the chase</b><p class="note">Dues and event seats sit in one club wallet. A club pays once, and the treasurer checks one line.</p></div>
@@ -463,7 +471,7 @@ Here are the member details:
       </div></section>
       <section id="clubs-map" class="sec"><div class="sec-in two">
         <div><span class="eyebrow">Clubs</span><h2 class="sec-h">${act.length} clubs, seven groups</h2>
-          <p class="lede">${college} college clubs with ${num(memC)} members and ${act.length - college} community clubs with ${num(memK)} members.</p>
+          <p class="lede">${college} college clubs with ${num(memC)} paid members and ${act.length - college} community clubs with ${num(memK)} paid members.</p>
           <ul class="legend vert"><li><i class="lg com"></i>Community club</li><li><i class="lg col"></i>College club</li></ul></div>
         <div class="card"><ul class="g-split">${[1, 2, 3, 4, 5, 6, 7].map(g => {
           const cs = act.filter(c => U.groupOf(c) === g), col = cs.filter(c => c.type === 'College').length, max = Math.max(...[1, 2, 3, 4, 5, 6, 7].map(k => act.filter(c => U.groupOf(c) === k).length));

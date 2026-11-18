@@ -54,7 +54,7 @@
     const projs = U.projects(c, 3).concat(U.projects(c, 4));
     const hours = projs.reduce((a, p) => a + p.manHours, 0), ben = projs.reduce((a, p) => a + p.beneficiaries, 0);
     return `<div class="g-band" style="--g:${U.gcolor(g)}"><span>Rotaract Club of ${esc(c.name)}</span><small>Group ${g}, ${c.type.toLowerCase()} club, sponsored by ${esc(c.sponsor || 'a Rotary club')}</small></div>
-    ${head(esc(c.name), `${esc(c.place)}. Chartered ${c.chartered}. ${num(c.members)} members.`, `${canAdmin() ? `<button class="btn ink" data-act="lifecycle" data-id="${c.id}">Change state</button>` : ''}`)}
+    ${head(esc(c.name), `${esc(c.place)}. Chartered ${c.chartered}. ${num(U.paidMembers(c))} paid members${U.unpaidMembers(c) ? `, ${U.unpaidMembers(c)} not paid yet` : ''}.`, `${canAdmin() ? `<button class="btn ink" data-act="lifecycle" data-id="${c.id}">Change state</button>` : ''}`)}
     <div class="stats">
       <div class="stat"><span class="st-l">State</span><b class="st-v">${U.pill(st, st === 'Active' ? 'ok' : st === 'Proposed' ? 'neutral' : 'bad')}</b></div>
       ${U.fig(projs.length, 'Projects, Oct and Nov')}
@@ -90,7 +90,7 @@
       <div class="g-cards">${D.GROUPS.map(g => {
         const cs = act.filter(c => U.groupOf(c) === g.id);
         const ok = cs.filter(c => U.report(c, 3).status === 'accepted').length;
-        return `<button class="g-card" style="--g:${U.gcolor(g.id)}" data-go="group" data-arg="${g.id}"><span class="g-sw"></span><span class="g-t"><b>${g.name}</b><small>${esc(g.area)}</small></span><span class="g-m"><span><b class="fig">${cs.length}</b> clubs</span><span><b class="fig">${num(cs.reduce((a, c) => a + c.members, 0))}</b> members</span><span><b class="fig">${pct(ok, cs.length)}%</b> October</span></span><span class="g-who">GRR ${esc(g.grr)}<br>GRS ${esc(g.grs)}</span></button>`;
+        return `<button class="g-card" style="--g:${U.gcolor(g.id)}" data-go="group" data-arg="${g.id}"><span class="g-sw"></span><span class="g-t"><b>${g.name}</b><small>${esc(g.area)}</small></span><span class="g-m"><span><b class="fig">${cs.length}</b> clubs</span><span><b class="fig">${num(cs.reduce((a, c) => a + U.paidMembers(c), 0))}</b> paid members</span><span><b class="fig">${pct(ok, cs.length)}%</b> October</span></span><span class="g-who">GRR ${esc(g.grr)}<br>GRS ${esc(g.grs)}</span></button>`;
       }).join('')}</div>
       <section class="card"><div class="card-h"><h2>Group race</h2><span class="muted">October reports</span></div>${U.race(U.groupStandings())}</section>
     </div>`;
@@ -106,7 +106,7 @@
   const PF = { q: '', role: '', page: 1, club: 0 };
   let ALL = null;
   const base = () => { if (!ALL) { ALL = []; for (let i = 0; i < D.memberCount; i++) ALL.push(D.member(i)); } return ALL; };
-  const added = () => P.members.map((x, k) => ({ i: -1 - k, name: x.name, club: U.club(x.club), role: x.post, points: 0, joined: x.joined || 2026, id: x.ri || 'RI ID pending', added: true, x }));
+  const added = () => P.members.map((x, k) => ({ i: -1 - k, k, name: x.name, club: U.club(x.club), role: x.post, points: 0, joined: x.joined || 2026, id: (x.ra || x.ri || '').trim() || 'No RA ID yet', paid: U.isPaidMember(x), added: true, x }));
   U.rosterOf = club => base().filter(m => m.club.id === club.id).concat(added().filter(m => m.club.id === club.id));
   const allMembers = () => base().concat(added());
   const isOwn = () => U.level() === 'club';
@@ -122,7 +122,7 @@
     const rows = list.slice((PF.page - 1) * per, PF.page * per);
     const phone = isOwn() ? `<td class="lock">${ic('check')}<span>Your club</span></td>` : `<td class="lock">${ic('lock')}<span>District officials</span></td>`;
     return {
-      body: rows.length ? rows.map(m => `<tr><td><span class="pp">${esc(m.name.split(' ').map(x => x[0]).join(''))}</span><b>${esc(m.name)}</b>${m.added ? ' ' + U.pill('New', 'ok') : ''}</td><td>${esc(m.club.name)}</td><td>${esc(m.role)}</td><td class="fig">${esc(m.id)}</td><td class="fig r">${m.points}</td>${phone}</tr>`).join('') : `<tr><td colspan="6"><div class="empty">${ic('users')}<b>Nobody matches</b><span>Try part of a name, a post or an ID.</span></div></td></tr>`,
+      body: rows.length ? rows.map(m => `<tr><td><span class="pp">${esc(m.name.split(' ').map(x => x[0]).join(''))}</span><b>${esc(m.name)}</b>${m.added ? ' ' + U.pill('New', 'ok') : ''}${m.district ? `<small class="sub">Also ${esc(m.district)}</small>` : ''}</td><td>${esc(m.club.name)}</td><td>${esc(m.role)}</td><td class="fig">${esc(m.id)}</td><td>${m.added && !m.paid ? U.pill('Not paid', 'warn') + (U.can.roster() ? ` <button class="btn sm" data-act="mem-paid" data-k="${m.k}">Mark paid</button>` : '') : U.pill('Paid', 'ok')}</td><td class="fig r">${m.points}</td>${phone}</tr>`).join('') : `<tr><td colspan="7"><div class="empty">${ic('users')}<b>Nobody matches</b><span>Try part of a name, a post or an ID.</span></div></td></tr>`,
       pager: U.pager(list.length, PF.page, per, 'people-page'),
       total: list.length
     };
@@ -152,8 +152,9 @@
     const chip = (v, l) => `<button class="chip${PF.role === v ? ' on' : ''}" data-act="people-f" data-v="${v}" aria-pressed="${PF.role === v}">${l}</button>`;
     const count = peopleList().length;
     const title = own ? 'Club roster' : 'People';
-    const sub = own ? (manage ? 'Your members. Add them one by one or import the whole roster at once.' : 'Your club members. The president and secretary keep this list.')
-      : grp ? `${num(count)} Rotaractors in Group ${U.MY_GROUP}. Phone numbers and addresses stay private.` : `${num(D.memberCount)} Rotaractors across the district. Phone numbers and addresses stay private.`;
+    const club = U.myClub(), up = U.unpaidMembers(club);
+    const sub = own ? `${num(U.paidMembers(club))} paid members${up ? `, ${up} not paid yet` : ''}. Only paid members count in the district total. ${manage ? 'Add them one by one or import the whole roster.' : 'The president and secretary keep this list.'}`
+      : grp ? `${num(count)} Rotaractors in Group ${U.MY_GROUP}. Phone numbers and addresses stay private.` : `${num(U.paidTotal())} paid members across the district. Phone numbers and addresses stay private.`;
     const act = manage ? `<button class="btn" data-act="import">${ic('upload')}Import roster</button><button class="btn ink" data-act="add-member">${ic('plus')}Add member</button>` : U.can.exportAll() ? `<button class="btn" data-act="export-data">${ic('upload')}Export district data</button>` : '';
     return `${head(title, sub, act)}
     ${own ? postsCard() : ''}
@@ -162,7 +163,7 @@
         <label class="search">${ic('search')}<span class="sr">Search people</span><input id="peopleQ" type="search" placeholder="${own ? 'Search name, post or ID' : 'Search name, club or ID'}" value="${esc(PF.q)}" data-on="people-q" autocomplete="off"></label>
         <div class="chips">${chip('', 'Everyone')}${chip('Board', 'Board')}${chip('President', 'Presidents')}${chip('Secretary', 'Secretaries')}</div>
       </div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Club</th><th>Post</th><th>ID</th><th class="r">Points</th><th>Phone</th></tr></thead><tbody id="peopleRows">${r.body}</tbody></table></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Club</th><th>Post</th><th>RA member ID</th><th>Membership</th><th class="r">Points</th><th>Phone</th></tr></thead><tbody id="peopleRows">${r.body}</tbody></table></div>
       <div id="peoplePager">${r.pager}</div>
     </section>
     <p class="note">${own ? 'You see your own club only. District officials see every club and each group\'s officials see their group.' : 'Privacy levels: everyone sees name, club and post. District officials see phone and email. Only the member and the database team see address and date of birth. Blood group lives in an opt-in donor list.'}</p>`;
@@ -177,7 +178,7 @@
     <section class="card callout">${ic('badge')}<p><b>${esc(twice.holder)}</b> holds two posts: RYLA Chairman and Chairperson, Blood Donation. They switch between both from one login.</p></section>
     <div class="grid-2">
       ${teams.map(t => `<section class="card"><div class="card-h"><h2>${esc(t)}</h2><span class="muted fig">${list.filter(d => d.team === t).length}</span></div>
-        <ul class="desig">${list.filter(d => d.team === t).map(d => `<li><div><b>${esc(d.title)}</b><small class="sub">${esc(d.holder)}, ${esc(d.scope)}</small></div>${U.pill(d.tpl, d.isNew ? 'ok' : 'neutral')}</li>`).join('')}</ul></section>`).join('')}
+        <ul class="desig">${list.filter(d => d.team === t).map(d => `<li><div><b>${esc(d.title)}</b><small class="sub">${esc(d.holder)}${(c => c ? `, ${esc(c.name)}` : '')(d.holderClub ? U.club(d.holderClub) : (D.homeOf(d.holder) || {}).club)}, ${esc(d.scope)}</small></div>${U.pill(d.tpl, d.isNew ? 'ok' : 'neutral')}</li>`).join('')}</ul></section>`).join('')}
     </div>
     <section class="card"><div class="card-h"><h2>Access templates</h2></div><ul class="kv">${Object.entries(D.TEMPLATES).map(([k, v]) => `<li><span><b>${k}</b><small class="sub">${v}</small></span></li>`).join('')}</ul></section>`;
   });

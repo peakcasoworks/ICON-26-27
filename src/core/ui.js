@@ -61,6 +61,14 @@
   // Dues the treasurer raises reach every club in their scope: all, college, community, one group or one club.
   const dueApplies = (d, c) => d.scope === 'all' || d.scope === c.type || d.scope === 'g' + groupOf(c) || d.scope === 'c' + c.id;
   const EVENT_ITEM = { assembly: 'asm', ryla: 'ryla', conf: 'conf' };
+  /* Membership. Only members whose membership is paid count in the district's numbers. A club can still keep unpaid members on
+     its roster. An RA member ID means the person paid membership this year or last, so it counts as paid. The sample roster is
+     the district's registered list, so every sample member counts as paid. */
+  const isPaidMember = x => !!(x.paid === 'yes' || x.paid === true || (x.ra || x.ri || '').trim());
+  const addedOf = c => (P.members || []).filter(x => String(x.club) === String(c.id));
+  const paidMembers = c => c.members + addedOf(c).filter(isPaidMember).length;
+  const unpaidMembers = c => addedOf(c).filter(x => !isPaidMember(x)).length;
+  const paidTotal = () => D.memberCount + (P.members || []).filter(isPaidMember).length;
   const wallet = c => {
     const base = D.walletFor(c), seed = Object.fromEntries(base.map(it => [it.id, it]));
     const out = base.filter(it => !Object.values(EVENT_ITEM).includes(it.id.split('-').pop()));
@@ -71,7 +79,7 @@
       const paid = regOf(e, c) ? Object.values(regOf(e, c)).filter(x => x.paid).length : 0;
       out.push({ id, ev: e.id, head: s0 ? s0.head : e.name, detail: `${n} ${n === 1 ? 'person' : 'people'} at ${inr(fee)}, count fixed with your group${e.status !== 'Done' ? `. ${paid} of ${n} registered` : ''}`, amount: n * fee, due: s0 ? s0.due : e.date.split(' ').slice(0, 2).join(' '), status: s0 ? s0.status : 'due', ref: s0 && s0.ref });
     });
-    (P.dues || []).filter(d => dueApplies(d, c)).forEach(d => out.push({ id: c.id + '-due-' + d.id, head: d.head, detail: d.mode === 'member' ? `${c.members} members at ${inr(d.amount)}` : 'For the club', amount: d.mode === 'member' ? c.members * d.amount : d.amount, due: d.due, status: 'due' }));
+    (P.dues || []).filter(d => dueApplies(d, c)).forEach(d => out.push({ id: c.id + '-due-' + d.id, head: d.head, detail: d.mode === 'member' ? `${paidMembers(c)} paid members at ${inr(d.amount)}` : 'For the club', amount: d.mode === 'member' ? paidMembers(c) * d.amount : d.amount, due: d.due, status: 'due' }));
     return out.map(it => Object.assign({}, it, P.pay[it.id] || {}));
   };
   const gcolor = g => 'var(--sw' + (P.gcol[g] || g) + ')';
@@ -104,7 +112,7 @@
     jsec: { label: 'Joint Secretary', full: 'Joint Secretary, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'pen', nav: ['home', 'log', 'monthly', 'events', 'people', 'pass'] },
     trs: { label: 'Club Treasurer', full: 'Treasurer, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'rupee', nav: ['home', 'collect', 'events', 'people', 'pass'] },
     adsgt: { label: 'Associate District Sergeant-at-Arms', full: 'Associate District Sergeant-at-Arms', who: 'District events', icon: 'badge', nav: ['home', 'drc', 'review', 'events'] },
-    dsgt: { label: 'District Sergeant-at-Arms', full: 'Chief Sergeant-at-Arms, District', who: 'District events', icon: 'badge', nav: ['home', 'drc', 'review', 'events'] },
+    dsgt: { label: 'District Sergeant-at-Arms', full: 'Chief Sergeant-at-Arms, District', who: 'District events', icon: 'badge', nav: ['home', 'drc', 'review', 'events', 'initiatives'] },
     mem: { label: 'Member', full: 'Member, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'id', nav: ['home', 'events', 'initiatives', 'awards'] }
   };
   const NAV = {
@@ -128,7 +136,18 @@
   const level = () => SCOPE[P.role] || 'none';
   const COLLEGE_DEMO = D.clubs.find(c => c.type === 'College' && c.name !== 'Senthamizh University' && c.state === 'Active');
   const demoClubs = () => [D.cosmos, COLLEGE_DEMO];
-  const myClub = () => demoClubs().find(c => c.id === P.myClub) || D.cosmos;
+  // In "my club" view a district official or group lead works inside their own home club.
+  const myClub = () => (P.hat && club(P.hat.club)) || demoClubs().find(c => c.id === P.myClub) || D.cosmos;
+  // Who each district or group seat is, so we can find the club they belong to.
+  const ROLE_TITLE = { drr: 'District Rotaract Representative', drs: 'District Rotaract Secretary', adrr: 'Associate DRR', adrs: 'Associate District Secretary', dt: 'District Treasurer', gco: 'Group Coordinator', dsgt: 'Chief Sergeant-at-Arms', adsgt: 'Associate Sergeant-at-Arms', dir: 'Chairperson, Blood Donation', chair: 'RYLA Chairman' };
+  const personaName = r => {
+    if (r === 'grr' || r === 'grs') { const g = D.GROUPS[myGroup() - 1]; return r === 'grr' ? g.grr : g.grs; }
+    const d = ROLE_TITLE[r] && D.designations.find(x => x.title === ROLE_TITLE[r]);
+    return d ? d.holder : null;
+  };
+  const personaHome = () => { const r = P.hat ? P.hat.from : P.role, n = personaName(r), h = n && D.homeOf(n); return h ? Object.assign({ name: n, role: r }, h) : null; };
+  // The club post decides what they can do in their club: a treasurer pays dues, a secretary sends reports.
+  const CLUB_ROLE = { President: 'pres', 'Vice President': 'vp', Secretary: 'sec', 'Joint Secretary': 'jsec', Treasurer: 'trs' };
   const canSeeClub = c => { const l = level(); return l === 'district' || l === 'portfolio' || (l === 'group' ? groupOf(c) === myGroup() : l === 'club' && c.id === myClub().id); };
   const canSeePerson = m => { const l = level(); return l === 'district' || (l === 'group' ? groupOf(m.club) === myGroup() : l === 'club' && m.club.id === myClub().id); };
   const visibleClubs = () => clubs().filter(canSeeClub);
@@ -143,6 +162,9 @@
   const LEADS = ['drr', 'drs'];
   const isLead = () => LEADS.includes(P.role);
   const can = {
+    // District events and initiatives: the DRR, the DRS and the District Sergeant-at-Arms. Not the associate sergeant, not club sergeants.
+    createEvent: () => isLead() || P.role === 'dsgt',
+    createInitiative: () => isLead() || ['dsgt', 'dir'].includes(P.role),
     sendReport: () => ['pres', 'sec', 'jsec'].includes(P.role),
     roster: () => ['pres', 'sec'].includes(P.role),
     pay: () => ['trs', 'pres'].includes(P.role),
@@ -220,7 +242,8 @@
       paintShell();
       const fn = views[cur.view] || views.home;
       const out = $('#view');
-      out.innerHTML = backBar() + fn(cur.arg);
+      const hatBar = P.hat ? `<div class="hat-bar">${ic('building')}<span>You are in your club view: <b>${esc(P.hat.post)}, Rotaract Club of ${esc(myClub().name)}</b>. Your ${esc(ROLES[P.hat.from].label)} pages are one tap away.</span><button class="btn sm" data-act="hat-back">Back to ${esc(ROLES[P.hat.from].label)}</button></div>` : '';
+      out.innerHTML = hatBar + backBar() + fn(cur.arg);
       if (opts.y != null) window.scrollTo(0, opts.y);
       else if (!opts.keepScroll) window.scrollTo(0, 0);
       after(out, opts);
@@ -230,6 +253,13 @@
 
   /* ---------- shell ---------- */
   function navItems() { return R().nav; }
+  // A district official or group lead can step into their own club and back.
+  const hatLink = () => {
+    const h = personaHome();
+    if (!h) return '';
+    return P.hat ? `<button class="hat-chip on" data-act="hat-back">${ic('left')}<span>Back to ${esc(ROLES[P.hat.from].label)}</span></button>`
+      : `<button class="hat-chip" data-act="hat-club">${ic('building')}<span>My club: ${esc(h.post)}, ${esc(h.club.name)}</span></button>`;
+  };
   function paintShell() {
     const app = $('#app');
     if (!P.role || cur.view === 'roles') { app.className = 'bare'; return; }
@@ -245,7 +275,7 @@
       return `<a href="#${id}" class="${cls}${on ? ' on' : ''}" data-go="${id}" ${on ? 'aria-current="page"' : ''}>${ic(icon)}<span>${cls === 'tl' ? (SHORT[id] || label) : id === 'home' ? HOME_NAME[P.role] : label}</span></a>`;
     };
     $('#side').innerHTML = `<div class="side-in">
-      <div class="side-role"><span class="avatar">${ic(r.icon)}</span><div><b>${esc(r.label)}</b><small>${esc(r.who)}</small></div></div>
+      ${hatLink()}<div class="side-role"><span class="avatar">${ic(r.icon)}</span><div><b>${esc(r.label)}</b><small>${esc(r.who)}</small></div></div>
       <nav aria-label="Main">${items.map(i => link(i, 'nl')).join('')}</nav>
       <button class="nl switch" data-act="roles">${ic('swap')}<span>Switch role</span></button>
     </div>`;
@@ -392,6 +422,9 @@
     </svg>`;
   }
 
+  // The Rotaract wheel rolling along a track: it turns with the distance it travels, so it rolls rather than slides.
+  function roller(cls = '') { return `<span class="roller ${cls}" aria-hidden="true">${gear('rl-g')}</span>`; }
+
   // Chennai as layered flat shapes: the district gear rises as the sun behind
   // the Kapaleeshwarar gopuram, Central Station and the Marina lighthouse.
   // Morning palette in light mode, dusk palette in dark mode.
@@ -523,7 +556,7 @@
     const p = Math.min(idx, 2) / 2 * 100;
     return `<div class="trk" role="img" aria-label="Report route: ${RS[status][0]}">
       <div class="trk-road"><i style="--w:${(Math.min(idx, 2) / 2).toFixed(3)}"></i></div>
-      <div class="trk-move" data-rk="${p}">${auto('trk-auto')}</div>
+      <div class="trk-move" data-rk="${p}">${roller('trk-roll')}</div>
       <ol class="trk-stops">${STEPS.map((s, i) => `<li class="${i < idx ? 'done' : i === idx ? 'here' : ''}"><span class="dot"></span>${s}</li>`).join('')}</ol>
     </div>`;
   }
@@ -553,5 +586,5 @@
   const skeletonRows = (n, cols) => Array.from({ length: n }, () => `<tr class="sk-row">${Array.from({ length: cols }, () => '<td><span class="sk"></span></td>').join('')}</tr>`).join('');
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-  window.UI = { gearPath, P, save, blank, KEY, calm, OS_CALM, SCOPE, level, myClub, get MY_GROUP() { return myGroup(); }, demoClubs, canSeeClub, canSeePerson, visibleClubs, roleInfo, can, download, isLead, LEADS, back, labelOf, resetTrail: () => { trail.length = 0; }, seatEvents, countEvents, scanEvents, seatsOf, countOf, setCount, feeOf, dueApplies, regOf, get RM() { return calm(); }, $, $$, esc, num, inr, ic, pct, clubs, club, stateOf, groupOf, activeClubs, report, setReport, projects, wallet, gcolor, RS, PAY, pill, rpill, ppill, gpill, ROLES, NAV, HOME_NAME, role, R, view, go, render, cur: () => cur, setCur: c => { cur = c; }, notifs, sheet, closeSheet, toast, confetti, after, gear, skyline, scene, auto, coffee, mapSVG, ring, spark, bar, tracker, qr, pager, skeletonRows, debounce };
+  window.UI = { gearPath, P, save, blank, KEY, calm, OS_CALM, SCOPE, level, myClub, get MY_GROUP() { return myGroup(); }, demoClubs, canSeeClub, canSeePerson, visibleClubs, roleInfo, can, download, isLead, LEADS, personaName, personaHome, CLUB_ROLE, ROLE_TITLE, hatLink, isPaidMember, paidMembers, unpaidMembers, paidTotal, back, labelOf, resetTrail: () => { trail.length = 0; }, seatEvents, countEvents, scanEvents, seatsOf, countOf, setCount, feeOf, dueApplies, regOf, get RM() { return calm(); }, $, $$, esc, num, inr, ic, pct, clubs, club, stateOf, groupOf, activeClubs, report, setReport, projects, wallet, gcolor, RS, PAY, pill, rpill, ppill, gpill, ROLES, NAV, HOME_NAME, role, R, view, go, render, cur: () => cur, setCur: c => { cur = c; }, notifs, sheet, closeSheet, toast, confetti, after, gear, skyline, scene, auto, roller, coffee, mapSVG, ring, spark, bar, tracker, qr, pager, skeletonRows, debounce };
 })();
