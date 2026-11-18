@@ -38,22 +38,42 @@
     save();
   };
   const projects = (c, mi) => (c.isNew ? [] : D.projectsFor(c, mi)).concat(P.projects[c.id + '|' + mi] || []);
-  /* Seats: the district allots a pool to each group, the GRR or GRS spreads it over the group's clubs. */
+  /* Fees and counts. The District Treasurer sets an event's fee a head. The GRR or GRS agrees a count with each club, by phone
+     or in person, and fixes it here. The club then owes count x fee, and registers that many members. */
   // Scanning at the door is only for the big events and every DRC meeting. Everything else is counted from the club's paid list.
   const scanEvents = () => D.EVENTS.filter(e => e.scan && e.status !== 'Done');
-  const seatEvents = () => D.EVENTS.filter(e => e.quota && e.status !== 'Done');
-  const seatsOf = (e, c) => { const a = P.alloc[e.id]; return a && a.club[c.id] != null ? a.club[c.id] : e.quota || 0; };
-  const poolOf = (e, g) => { const a = P.alloc[e.id]; return a && a.pool[g] != null ? a.pool[g] : activeClubs().filter(c => groupOf(c) === g).reduce((n, c) => n + (e.quota || 0), 0); };
-  const spent = (e, g) => activeClubs().filter(c => groupOf(c) === g).reduce((n, c) => n + seatsOf(e, c), 0);
-  // What a club owes for an event follows who paid it: members pay the club, the club ticks them, and that count is the bill.
+  const feeOf = e => P.fees && P.fees[e.id] != null ? P.fees[e.id] : (e.fee || 0);
+  const countEvents = () => D.EVENTS.filter(e => e.status !== 'Done' && e.id !== 'josh' && feeOf(e) > 0);
+  const seatEvents = countEvents;
+  // Sample counts: most clubs already agreed their RYLA count; nobody has a Conference count yet.
+  const seededCount = (e, c) => {
+    if (e.status === 'Done') return e.quota || 0;
+    if (e.id !== 'ryla') return null;
+    if (c.name === 'Madras Cosmos') return 2;
+    const h = ((c.id * 2654435761) >>> 0) % 100;
+    return h < 72 ? 1 + h % 4 : null;
+  };
+  // null means the GRR or GRS has not fixed this club's count yet.
+  const countOf = (e, c) => { const a = P.alloc[e.id]; if (a && a.club[c.id] != null) return a.club[c.id]; return feeOf(e) > 0 ? seededCount(e, c) : (e.quota || 0); };
+  const seatsOf = (e, c) => countOf(e, c) || 0;
+  const setCount = (e, c, n) => { const a = (P.alloc[e.id] = P.alloc[e.id] || { pool: {}, club: {} }); a.club[c.id] = n; };
   const regOf = (e, c) => P.reg && P.reg[e.id] && P.reg[e.id][c.id];
-  const FEE_OF = { asm: 'assembly', ryla: 'ryla', conf: 'conf' };
-  const wallet = c => D.walletFor(c).map(it => {
-    const ev = FEE_OF[it.id.split('-').pop()] && D.EVENTS.find(e => e.id === FEE_OF[it.id.split('-').pop()]);
-    const rg = ev && regOf(ev, c), n = rg ? Object.values(rg).filter(x => x.paid).length : ev ? seatsOf(ev, c) : 0;
-    const base = ev && ev.fee ? Object.assign({}, it, { amount: n * ev.fee, detail: n + (n === 1 ? (rg ? ' member paid, at ' : ' seat at ') : (rg ? ' members paid, at ' : ' seats at ')) + inr(ev.fee), skip: !!rg && n === 0 }) : it;
-    return Object.assign({}, base, P.pay[it.id] || {});
-  }).filter(it => !it.skip);
+  // Dues the treasurer raises reach every club in their scope: all, college, community, one group or one club.
+  const dueApplies = (d, c) => d.scope === 'all' || d.scope === c.type || d.scope === 'g' + groupOf(c) || d.scope === 'c' + c.id;
+  const EVENT_ITEM = { assembly: 'asm', ryla: 'ryla', conf: 'conf' };
+  const wallet = c => {
+    const base = D.walletFor(c), seed = Object.fromEntries(base.map(it => [it.id, it]));
+    const out = base.filter(it => !Object.values(EVENT_ITEM).includes(it.id.split('-').pop()));
+    D.EVENTS.forEach(e => {
+      const fee = feeOf(e), n = fee && e.id !== 'josh' ? countOf(e, c) : null;
+      if (!n) return;
+      const id = c.id + '-' + (EVENT_ITEM[e.id] || e.id), s0 = seed[id];
+      const paid = regOf(e, c) ? Object.values(regOf(e, c)).filter(x => x.paid).length : 0;
+      out.push({ id, ev: e.id, head: s0 ? s0.head : e.name, detail: `${n} ${n === 1 ? 'person' : 'people'} at ${inr(fee)}, count fixed with your group${e.status !== 'Done' ? `. ${paid} of ${n} registered` : ''}`, amount: n * fee, due: s0 ? s0.due : e.date.split(' ').slice(0, 2).join(' '), status: s0 ? s0.status : 'due', ref: s0 && s0.ref });
+    });
+    (P.dues || []).filter(d => dueApplies(d, c)).forEach(d => out.push({ id: c.id + '-due-' + d.id, head: d.head, detail: d.mode === 'member' ? `${c.members} members at ${inr(d.amount)}` : 'For the club', amount: d.mode === 'member' ? c.members * d.amount : d.amount, due: d.due, status: 'due' }));
+    return out.map(it => Object.assign({}, it, P.pay[it.id] || {}));
+  };
   const gcolor = g => 'var(--sw' + (P.gcol[g] || g) + ')';
 
   const RS = {
@@ -68,12 +88,14 @@
 
   /* ---------- roles ---------- */
   const ROLES = {
-    drr: { label: 'DRR', full: 'District Rotaract Representative', who: 'District', icon: 'gear', nav: ['home', 'reports', 'clubs', 'events', 'finance', 'groups', 'seats', 'drc', 'mom', 'review', 'initiatives', 'awards', 'designations', 'people', 'visits', 'season'] },
-    drs: { label: 'DRS', full: 'District Rotaract Secretary', who: 'District', icon: 'doc', nav: ['home', 'clubs', 'groups', 'people', 'drc', 'mom', 'review', 'events', 'visits'] },
-    dt: { label: 'District Treasurer', full: 'District Treasurer', who: 'District', icon: 'rupee', nav: ['home', 'clubs', 'events'] },
-    gco: { label: 'Group Coordinator', full: 'Group Coordinator, all seven groups', who: 'All groups', icon: 'layers', nav: ['home', 'groups', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people', 'initiatives'] },
-    grr: { label: 'GRR', full: 'Group Rotaract Representative', who: 'Your group', icon: 'layers', nav: ['home', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people', 'initiatives'] },
-    grs: { label: 'GRS', full: 'Group Rotaract Secretary', who: 'Your group', icon: 'doc', nav: ['home', 'reports', 'clubs', 'seats', 'drc', 'mom', 'events', 'people'] },
+    drr: { label: 'DRR', full: 'District Rotaract Representative', who: 'District', icon: 'gear', nav: ['home', 'reports', 'clubs', 'events', 'finance', 'dues', 'groups', 'drc', 'mom', 'review', 'initiatives', 'awards', 'designations', 'people', 'visits', 'season'] },
+    drs: { label: 'DRS', full: 'District Rotaract Secretary', who: 'District', icon: 'doc', nav: ['home', 'reports', 'clubs', 'events', 'finance', 'dues', 'groups', 'drc', 'mom', 'review', 'initiatives', 'awards', 'designations', 'people', 'visits', 'season'] },
+    adrr: { label: 'Associate DRR', full: 'Associate District Rotaract Representative', who: 'District, read only', icon: 'gear', nav: ['home', 'reports', 'clubs', 'events', 'finance', 'dues', 'groups', 'drc', 'mom', 'review', 'initiatives', 'awards', 'designations', 'people', 'visits', 'season'] },
+    adrs: { label: 'Associate DRS', full: 'Associate District Rotaract Secretary', who: 'District, read only', icon: 'doc', nav: ['home', 'reports', 'clubs', 'events', 'finance', 'dues', 'groups', 'drc', 'mom', 'review', 'initiatives', 'awards', 'designations', 'people', 'visits', 'season'] },
+    dt: { label: 'District Treasurer', full: 'District Treasurer', who: 'District', icon: 'rupee', nav: ['home', 'dues', 'clubs', 'events'] },
+    gco: { label: 'Group Coordinator', full: 'Group Coordinator, all seven groups', who: 'All groups', icon: 'layers', nav: ['home', 'groups', 'reports', 'clubs', 'counts', 'drc', 'mom', 'events', 'people', 'initiatives'] },
+    grr: { label: 'GRR', full: 'Group Rotaract Representative', who: 'Your group', icon: 'layers', nav: ['home', 'reports', 'clubs', 'counts', 'drc', 'mom', 'events', 'people', 'initiatives'] },
+    grs: { label: 'GRS', full: 'Group Rotaract Secretary', who: 'Your group', icon: 'doc', nav: ['home', 'reports', 'clubs', 'counts', 'drc', 'mom', 'events', 'people'] },
     dir: { label: 'Director', full: 'Chairperson, Blood Donation', who: 'Every drop counts', icon: 'spark', nav: ['home', 'initiatives', 'drc', 'events', 'clubs'] },
     chair: { label: 'RYLA Chair', full: 'RYLA Chairman', who: 'RYLA 2026', icon: 'flag', nav: ['home', 'events', 'drc', 'clubs'] },
     pres: { label: 'Club President', full: 'President, Rotaract Club of Madras Cosmos', who: 'Madras Cosmos', icon: 'user', nav: ['home', 'monthly', 'collect', 'wallet', 'drc', 'mom', 'visits', 'events', 'initiatives', 'people', 'pass'] },
@@ -89,17 +111,18 @@
     home: ['Home', 'home'], reports: ['Reports', 'doc'], clubs: ['Clubs', 'building'], groups: ['Groups', 'layers'], events: ['Events', 'flag'],
     finance: ['Finance', 'rupee'], initiatives: ['Initiatives', 'spark'], awards: ['Scorecard', 'trophy'], designations: ['Designations', 'badge'],
     people: ['People', 'users'], visits: ['DRR visits', 'calendar'], season: ['Season', 'sun'], log: ['Log project', 'plus'],
-    monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id'], seats: ['Seat allotment', 'id'], drc: ['DRC', 'calendar'], mom: ['Minutes', 'doc'], review: ['Attendance review', 'badge'], collect: ['Event fees', 'rupee']
+    monthly: ['Monthly report', 'doc'], wallet: ['Club wallet', 'rupee'], pass: ['My pass', 'id'], drc: ['DRC', 'calendar'], dues: ['Dues and fees', 'rupee'], counts: ['Club counts', 'users'], mom: ['Minutes', 'doc'], review: ['Attendance review', 'badge'], collect: ['Event fees', 'rupee']
   };
-  const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'My group', grs: 'My group', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', trs: 'Club wallet', dsgt: 'Scan at the door', adsgt: 'Scan at the door', mem: 'My pass' };
-  // The pass sits right after Home for everyone: it is the thing people need first at a door.
-  Object.values(ROLES).forEach(r => { if (r.nav.includes('home') && !(r === ROLES.mem)) { r.nav = r.nav.filter(x => x !== 'pass'); r.nav.splice(1, 0, 'pass'); } });
+  const HOME_NAME = { drr: 'Command centre', drs: 'Reports desk', adrr: 'Command centre', adrs: 'Reports desk', dt: 'District finance', gco: 'Group desk', grr: 'My group', grs: 'My group', dir: 'My initiative', chair: 'RYLA workspace', pres: 'Club home', vp: 'Club home', sec: 'Club home', jsec: 'Club home', trs: 'Club wallet', dsgt: 'Scan at the door', adsgt: 'Scan at the door', mem: 'My pass' };
+  // The pass sits right after Home for everyone who is scanned at a door. The DRR and the DRS run the doors, so they have none.
+  const NO_PASS = ['drr', 'drs'];
+  Object.entries(ROLES).forEach(([id, r]) => { r.nav = r.nav.filter(x => x !== 'pass'); if (r.nav.includes('home') && r !== ROLES.mem && !NO_PASS.includes(id)) { r.nav = r.nav.filter(x => x !== 'pass'); r.nav.splice(1, 0, 'pass'); } });
   const role = () => P.role;
 
   /* ---------- who sees what ---------- */
   // district: every club and person. group: the clubs and people of one group. portfolio: clubs and events, no member lists.
   // club: that club only. Search, the people list, the clubs list and every club page follow this one rule.
-  const SCOPE = { drr: 'district', drs: 'district', dt: 'district', gco: 'district', grr: 'group', grs: 'group', dir: 'portfolio', chair: 'portfolio', pres: 'club', vp: 'club', sec: 'club', jsec: 'club', trs: 'club', mem: 'club', dsgt: 'portfolio', adsgt: 'portfolio' };
+  const SCOPE = { drr: 'district', drs: 'district', adrr: 'district', adrs: 'district', dt: 'district', gco: 'district', grr: 'group', grs: 'group', dir: 'portfolio', chair: 'portfolio', pres: 'club', vp: 'club', sec: 'club', jsec: 'club', trs: 'club', mem: 'club', dsgt: 'portfolio', adsgt: 'portfolio' };
   // A GRR or GRS belongs to one group, and that comes from their login. The demo lets you pick which one to try.
   const myGroup = () => P.myGroup || 6;
   const level = () => SCOPE[P.role] || 'none';
@@ -116,12 +139,14 @@
     return o;
   };
   const R = () => roleInfo(P.role);
+  // The DRR and the DRS run the district with the same powers. Their associates see the same pages but cannot decide anything.
+  const LEADS = ['drr', 'drs'];
+  const isLead = () => LEADS.includes(P.role);
   const can = {
     sendReport: () => ['pres', 'sec', 'jsec'].includes(P.role),
     roster: () => ['pres', 'sec'].includes(P.role),
     pay: () => ['trs', 'pres'].includes(P.role),
-    seats: () => ['drr', 'gco', 'grr', 'grs'].includes(P.role),
-    exportAll: () => ['drr', 'drs', 'gco', 'dt'].includes(P.role)
+    exportAll: () => ['drr', 'drs', 'adrr', 'adrs', 'gco', 'dt'].includes(P.role)
   };
 
   /* ---------- files ---------- */
@@ -138,18 +163,66 @@
   const views = {};
   let cur = { view: 'home', arg: null };
   const view = (name, fn) => { views[name] = fn; };
+  /* Every move between pages is a real browser history entry, so the phone's back gesture, the browser's back button and
+     the Back link on a page all return to where you came from, at the same scroll position. */
+  const trail = [];
+  // Where an inner page belongs when nobody came from anywhere (a shared link, a refresh).
+  const PARENT = { club: 'clubs', event: 'events', report: 'reports', group: 'groups', initiative: 'initiatives', momdoc: 'mom', workspace: 'events', notifs: 'home', scan: 'home', season: 'home', log: 'home', pass: 'home', counts: 'home', dues: 'home', wallet: 'home', collect: 'home', visits: 'home' };
+  const labelOf = s => {
+    if (!s) return 'Home';
+    const v = s.view, a = s.arg;
+    if (v === 'home') return HOME_NAME[P.role] || 'Home';
+    if (v === 'roles') return 'the start page';
+    if (v === 'club') { const c = club(a); return c ? c.name : 'the club'; }
+    if (v === 'report') { const c = club(a); return c ? 'the ' + c.name + ' report' : 'the report'; }
+    if (v === 'event') { const e = D.EVENTS.concat(P.events || []).find(x => x.id === a); return e ? e.name : 'the event'; }
+    if (v === 'group') return 'Group ' + a;
+    if (v === 'initiative') { const x = D.INITIATIVES.concat(P.inits || []).find(i => String(i.id) === String(a)); return x ? x.name : 'the initiative'; }
+    if (v === 'momdoc') return 'the minutes';
+    if (v === 'workspace') return 'the workspace';
+    if (v === 'notifs') return 'Notifications';
+    return NAV[v] ? NAV[v][0] : 'the last page';
+  };
+  const hashOf = (v, arg) => '#' + v + (arg != null ? '-' + arg : '');
   function go(v, arg, opts = {}) {
-    cur = { view: v, arg: arg == null ? null : arg };
-    try { history.replaceState(null, '', '#' + v + (arg != null ? '-' + arg : '')); } catch (e) { /* frame may refuse */ }
+    if (opts.push && !(cur.view === v && String(cur.arg) === String(arg == null ? null : arg))) { trail.push({ view: cur.view, arg: cur.arg, y: window.scrollY }); if (trail.length > 40) trail.shift(); }
+    else opts.push = false;
+    // via: 'menu' when picked from the menu, 'link' when reached from inside a page. Only a link earns a Back link on a main page.
+    cur = { view: v, arg: arg == null ? null : arg, via: opts.push ? (opts.via || 'link') : (cur.view === v ? cur.via : 'menu') };
+    try { history[opts.push ? 'pushState' : 'replaceState']({ v, arg: cur.arg, via: cur.via }, '', hashOf(v, arg)); } catch (e) { /* frame may refuse */ }
     render(opts);
   }
+  // The Back link: step back through history when we came from somewhere, otherwise up to the page this one belongs to.
+  function back() {
+    if (trail.length) { history.back(); return; }
+    go(PARENT[cur.view] && navItems().includes(PARENT[cur.view]) ? PARENT[cur.view] : 'home');
+  }
+  const parseHash = () => { const m = (location.hash || '').slice(1).match(/^([a-z]+)(?:-(.+))?$/); return m ? { view: m[1], arg: m[2] ? (isNaN(m[2]) ? m[2] : Number(m[2])) : null } : { view: 'home', arg: null }; };
+  window.addEventListener('popstate', e => {
+    if (!$('#sheet').hidden) closeSheet();
+    const to = e.state ? { view: e.state.v, arg: e.state.arg, via: e.state.via } : parseHash();
+    const prev = trail[trail.length - 1];
+    let y = 0;
+    if (prev && prev.view === to.view && String(prev.arg) === String(to.arg)) { trail.pop(); y = prev.y; }
+    else { trail.push({ view: cur.view, arg: cur.arg, y: window.scrollY }); }
+    if (!P.role && to.view !== 'roles') return;
+    cur = to;
+    render({ y, instant: true });
+  });
+  const backBar = () => {
+    const inner = cur.view !== 'home' && cur.view !== 'roles' && !navItems().includes(cur.view);
+    if (!P.role || cur.view === 'roles' || !(inner || (cur.via === 'link' && trail.length))) return '';
+    const to = trail.length ? trail[trail.length - 1] : { view: PARENT[cur.view] && navItems().includes(PARENT[cur.view]) ? PARENT[cur.view] : 'home' };
+    return `<nav class="back-bar" aria-label="Back"><button class="back-link" type="button" data-act="back">${ic('left')}<span>Back to ${esc(labelOf(to))}</span></button></nav>`;
+  };
   function render(opts = {}) {
     const run = () => {
       paintShell();
       const fn = views[cur.view] || views.home;
       const out = $('#view');
-      out.innerHTML = fn(cur.arg);
-      if (!opts.keepScroll) window.scrollTo(0, 0);
+      out.innerHTML = backBar() + fn(cur.arg);
+      if (opts.y != null) window.scrollTo(0, opts.y);
+      else if (!opts.keepScroll) window.scrollTo(0, 0);
       after(out, opts);
     };
     if (document.startViewTransition && !calm() && !opts.instant) document.startViewTransition(run); else run();
@@ -163,10 +236,13 @@
     app.className = '';
     const r = R();
     const items = navItems();
+    // The phone tab bar has room for one short word per tab.
+    const SHORT = { home: 'Home', monthly: 'Report', review: 'Attendance', collect: 'Fees', dues: 'Dues', counts: 'Counts', visits: 'Visits', wallet: 'Wallet', log: 'Log', designations: 'Roles', initiatives: 'Initiatives', awards: 'Scores' };
     const link = (id, cls) => {
       const [label, icon] = NAV[id];
-      const on = cur.view === id || (id === 'home' && cur.view === 'home');
-      return `<a href="#${id}" class="${cls}${on ? ' on' : ''}" data-go="${id}" ${on ? 'aria-current="page"' : ''}>${ic(icon)}<span>${id === 'home' ? HOME_NAME[P.role] : label}</span></a>`;
+      // An inner page lights up the menu item it belongs to, so you always know which part of the site you are in.
+      const on = cur.view === id || (!items.includes(cur.view) && PARENT[cur.view] === id);
+      return `<a href="#${id}" class="${cls}${on ? ' on' : ''}" data-go="${id}" ${on ? 'aria-current="page"' : ''}>${ic(icon)}<span>${cls === 'tl' ? (SHORT[id] || label) : id === 'home' ? HOME_NAME[P.role] : label}</span></a>`;
     };
     $('#side').innerHTML = `<div class="side-in">
       <div class="side-role"><span class="avatar">${ic(r.icon)}</span><div><b>${esc(r.label)}</b><small>${esc(r.who)}</small></div></div>
@@ -179,6 +255,7 @@
     const n = notifs().filter(x => x.unread).length;
     $('#bell').innerHTML = ic('bell') + (n ? `<b class="badge">${n}</b>` : '');
     $('#seasonName').textContent = P.season === 'vibe' ? 'VIBE' : 'ICON';
+    $('#passBtn').hidden = NO_PASS.includes(P.role);
     $('#seasonYear').textContent = P.season === 'vibe' ? '2026-27' : '2027-28';
   }
 
@@ -193,11 +270,11 @@
       adsgt: [['Bookings are in for the DRC on 7 Dec. Arrange the running order.', 'drc']],
       dir: [['The DRC on 7 Dec is open. Book your slot.', 'drc'], ['Chennai Velachery logged 42 units.', 'home'], ['Every drop counts crossed 1,400 units.', 'home']],
       chair: [['The DRC on 7 Dec is open. Book the RYLA team a slot.', 'drc'], ['Backstage committee has 3 open tasks.', 'home'], ['117 of 180 RYLA seats are filled.', 'home']],
-      pres: [['Collect the RYLA fee from your members and tick who paid.', 'collect'], ['Book your club\'s slot for the DRC on 7 Dec.', 'drc'], ['October report is late. You or your secretary can send it.', 'monthly'], ['Book your DRR official visit before 20 Dec.', 'visits'], ['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'wallet']],
+      pres: [['Collect the RYLA fee from your members and tick who paid.', 'collect'], ['Book your club\'s slot for the DRC on 7 Dec.', 'drc'], ['October report is late. You or your secretary can send it.', 'monthly'], ['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'wallet']],
       sec: [['October report is late. You or your president can send it.', 'monthly'], ['November: 2 projects logged, 3 steps left.', 'monthly'], ['Report for November is due on 5 Dec.', 'monthly']],
       trs: [['RYLA seat fee of ₹3,600 is due on 30 Nov.', 'home'], ['Conference delegate fee opens on 1 Dec.', 'home']],
-      gco: [['Group 3 has 2 clubs without a GRS check this week.', 'groups'], ['RYLA seat pools are open for the GRRs to spread.', 'seats']],
-      grs: [['Madras Cosmos report is waiting for your check.', 'reports'], ['RYLA seats for your group are ready to assign.', 'seats']],
+      gco: [['Group 3 has 2 clubs without a GRS check this week.', 'groups']],
+      grs: [['Madras Cosmos report is waiting for your check.', 'reports']],
       vp: [['October report is late. The president or secretary can send it.', 'monthly']],
       jsec: [['November: 2 projects logged, 3 steps left.', 'monthly']],
       mem: [['You earned 50 points at the Blood Donation Megacamp.', 'home'], ['RYLA registration is open.', 'events']]
@@ -390,7 +467,7 @@
     6: 'M0 350L120 360L240 340L250 520H0Z',
     7: 'M240 340L346 345C356 390 366 440 374 480C378 500 380 510 382 520H250Z'
   };
-  const ZLABEL = { 1: [250, 40], 2: [60, 60], 3: [232, 168], 4: [286, 262], 5: [70, 262], 6: [70, 490], 7: [290, 500] };
+  const ZLABEL = { 1: [250, 40], 2: [60, 60], 3: [168, 150], 4: [232, 334], 5: [70, 262], 6: [18, 506], 7: [290, 500] };
   function mapSVG(opts = {}) {
     const only = opts.group;
     const dotCls = opts.dotClass || (c => { const s = report(c, 3).status; return s === 'accepted' ? 'ok' : (s === 'none' || s === 'returned') ? 'bad' : 'warn'; });
@@ -409,7 +486,7 @@
       <text class="m-water" x="186" y="214">Cooum</text><text class="m-water" x="196" y="296">Adyar</text><text class="m-water bay" x="392" y="260" transform="rotate(90 392 260)">Bay of Bengal</text>
       <g class="m-lm"><path d="M335 236l2-12h4l2 12z"/><text x="328" y="250">Lighthouse</text></g>
       <g class="m-lm"><path d="M310 168h12v-8h-4v-5h-4v5h-4z"/><text x="276" y="160">Central</text></g>
-      <g class="m-lm"><path d="M312 268l3-10h4l3 10z"/><text x="276" y="272">Mylapore</text></g>
+      <g class="m-lm"><path d="M312 268l3-10h4l3 10z"/><text x="300" y="284">Mylapore</text></g>
       <g class="m-dots">${list.map((c, i) => {
         const g = groupOf(c);
         if (only && only != g) return '';
@@ -470,10 +547,11 @@
     nums.sort((a, b) => a - b);
     let html = '', prev = 0;
     nums.forEach(p => { if (p - prev > 1) html += '<span class="pg-gap">…</span>'; html += btn(p, p, false, p === page); prev = p; });
+    if (pages <= 1) return total ? `<div class="pager"><span class="pg-info fig">${num(total)} ${total === 1 ? 'item' : 'items'}</span></div>` : '';
     return `<div class="pager"><span class="pg-info fig">${num(from)}–${num(to)} of ${num(total)}</span><div class="pg-btns">${btn(page - 1, ic('left') + '<span class="sr">Previous page</span>', page <= 1)}${html}${btn(page + 1, ic('right') + '<span class="sr">Next page</span>', page >= pages)}</div></div>`;
   }
   const skeletonRows = (n, cols) => Array.from({ length: n }, () => `<tr class="sk-row">${Array.from({ length: cols }, () => '<td><span class="sk"></span></td>').join('')}</tr>`).join('');
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-  window.UI = { gearPath, P, save, blank, KEY, calm, OS_CALM, SCOPE, level, myClub, get MY_GROUP() { return myGroup(); }, demoClubs, canSeeClub, canSeePerson, visibleClubs, roleInfo, can, download, seatEvents, scanEvents, seatsOf, regOf, poolOf, spent, get RM() { return calm(); }, $, $$, esc, num, inr, ic, pct, clubs, club, stateOf, groupOf, activeClubs, report, setReport, projects, wallet, gcolor, RS, PAY, pill, rpill, ppill, gpill, ROLES, NAV, HOME_NAME, role, R, view, go, render, cur: () => cur, setCur: c => { cur = c; }, notifs, sheet, closeSheet, toast, confetti, after, gear, skyline, scene, auto, coffee, mapSVG, ring, spark, bar, tracker, qr, pager, skeletonRows, debounce };
+  window.UI = { gearPath, P, save, blank, KEY, calm, OS_CALM, SCOPE, level, myClub, get MY_GROUP() { return myGroup(); }, demoClubs, canSeeClub, canSeePerson, visibleClubs, roleInfo, can, download, isLead, LEADS, back, labelOf, resetTrail: () => { trail.length = 0; }, seatEvents, countEvents, scanEvents, seatsOf, countOf, setCount, feeOf, dueApplies, regOf, get RM() { return calm(); }, $, $$, esc, num, inr, ic, pct, clubs, club, stateOf, groupOf, activeClubs, report, setReport, projects, wallet, gcolor, RS, PAY, pill, rpill, ppill, gpill, ROLES, NAV, HOME_NAME, role, R, view, go, render, cur: () => cur, setCur: c => { cur = c; }, notifs, sheet, closeSheet, toast, confetti, after, gear, skyline, scene, auto, coffee, mapSVG, ring, spark, bar, tracker, qr, pager, skeletonRows, debounce };
 })();

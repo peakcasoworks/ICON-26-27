@@ -24,17 +24,18 @@ The build is a static site with no server code.
 
 ```
 index.html          page shell, icon sprite, loader markup
-src/main.js         entry: loads styles, data, views and app in order
-src/styles.css      colour tokens (light: Marina morning, dark: dusk), layout, components, scene animation
+src/main.js         entry: loads data, views and app in order (index.html links the stylesheet so nothing shows unstyled)
+src/styles.css      colour tokens (white and Rotaract pink, plum dark mode), Plus Jakarta Sans, layout, phone rules
 src/motion.js       GSAP: loader timeline, page and card reveals, group race, card tilt, ripples, DRC row moves
 src/hero.js         loads the 3D scene on demand, picks a quality tier, hands one canvas between loader and start page
-src/three/stage.js  Three.js start page: pink metal Rotaract wheel as the sun over Chennai, sky and sea shaders, sparks
+src/three/stage.js  Three.js start page: pink metal Rotaract wheel in a white studio, rings, pearls, sparks
 src/search.js       district search (Cmd or Ctrl+K, or /): pages, clubs, 5,839 people, events, initiatives, posts
 src/setup.js        connects motion and search to the app
 src/core/data.js    sample data: 70 clubs (49 college, 21 community), 7 groups, members, events, initiatives, posts
-src/core/ui.js      state, router, drawings (gear, Chennai scene, auto, rings, pager)
+src/core/ui.js      state, router with browser history and Back links, fees, counts and wallet, drawings
 src/core/views-*.js every screen, by role
-src/core/views-e.js seats, group desk, roster tools, export, bank matching, colours, start page sections
+src/core/views-e.js group desk, roster tools, export, bank matching, colours, start page sections
+src/core/views-i.js dues and event fees (District Treasurer), club counts (GRR and GRS)
 src/wheel.js        the Rotary wheel, used by the logo and the loader sparks
 src/core/app.js     click, input and form handlers, boot
 ```
@@ -44,7 +45,7 @@ src/core/app.js     click, input and form handlers, boot
 The start page and loader are a Three.js scene in its own chunk (about 146 KB gzipped). The rest of the site never waits for it: a CSS gradient and the flat wheel show until it arrives, the loader gives up waiting after 1.4 s, and devices with data saver or a 2G link, or without WebGL, keep the flat version. Pixel ratio adapts to the measured frame time, and the scene stops drawing when it is scrolled away, the tab is hidden, or you leave the start page.
 
 
-Animations are on by default. The yellow sparkle button in the top bar turns them off; the choice is saved in the browser. If the device asks for reduced motion, the demo shows a one-time note explaining where the button is.
+Animations are on by default. The sparkle button in the top bar (in More, on a phone) turns them off; the choice is saved in the browser. If the device asks for reduced motion, the demo shows a one-time note explaining where the button is.
 
 ## Notes
 

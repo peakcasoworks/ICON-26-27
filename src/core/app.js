@@ -2,8 +2,8 @@
 (function () {
   const U = UI, { $, $$, esc, num, inr, ic, P, save } = U;
   const cos = () => U.myClub();
-  const stack = [];
-  const go = (v, arg) => { stack.push(U.cur()); if (stack.length > 30) stack.shift(); U.go(v, arg); };
+  // A tap on any link is a step you can come back from.
+  const go = (v, arg, via) => U.go(v, arg, { push: true, via });
   const rerender = () => U.render({ instant: true, keepScroll: true });
   const roleLabel = r => U.ROLES[r].label;
   const notify = (role, t, goTo) => { P.extraNotifs.unshift({ role, t, go: goTo }); P.extraNotifs = P.extraNotifs.slice(0, 12); save(); };
@@ -16,7 +16,7 @@
 
   /* ---------- actions ---------- */
   const A = {
-    'pick-role'(el) { P.role = el.dataset.role; save(); U.closeSheet(); stack.length = 0; U.go('home'); U.toast('Viewing as ' + roleLabel(P.role)); },
+    'pick-role'(el) { P.role = el.dataset.role; save(); U.closeSheet(); U.resetTrail(); U.go('home'); U.toast('Viewing as ' + roleLabel(P.role)); },
     roles() {
       const clubs = U.demoClubs();
       U.sheet(`<h2 class="sh-h">Switch role</h2><p class="note">Same demo, different seat. Each login sees only what its job needs: a club sees its own club, a group lead sees the group, the district sees everything.</p>
@@ -25,15 +25,19 @@
         <div class="role-list">${Object.keys(U.ROLES).map(id => { const r = U.roleInfo(id); return `<button class="role-card${P.role === id ? ' on' : ''}" data-act="pick-role" data-role="${id}"><span class="avatar">${ic(r.icon)}</span><span class="rc-t"><b>${esc(r.label)}</b><small>${esc(r.full)}</small></span></button>`; }).join('')}</div>
         <button class="btn full" data-act="landing">Back to the start page</button>`);
     },
-    'demo-group'(el) { P.myGroup = Number(el.dataset.g); save(); if (U.cur().view === 'roles') rerender(); else { stack.length = 0; U.closeSheet(); U.go('home'); } U.toast('GRR and GRS roles now belong to Group ' + P.myGroup); },
-    'demo-club'(el) { P.myClub = Number(el.dataset.id); save(); stack.length = 0; U.closeSheet(); U.go('home'); U.toast('Club roles now show ' + U.myClub().name + ', a ' + U.myClub().type.toLowerCase() + ' club'); },
+    'demo-group'(el) { P.myGroup = Number(el.dataset.g); save(); if (U.cur().view === 'roles') rerender(); else { U.resetTrail(); U.closeSheet(); U.go('home'); } U.toast('GRR and GRS roles now belong to Group ' + P.myGroup); },
+    'demo-club'(el) { P.myClub = Number(el.dataset.id); save(); U.resetTrail(); U.closeSheet(); U.go('home'); U.toast('Club roles now show ' + U.myClub().name + ', a ' + U.myClub().type.toLowerCase() + ' club'); },
     landing() { U.closeSheet(); U.go('roles'); },
     'to-roles'() { const r = $('#roles'); if (r) window.scrollTo({ top: r.getBoundingClientRect().top + window.scrollY - 8, behavior: U.calm() ? 'auto' : 'smooth' }); },
     more() {
       const items = U.R().nav.slice(4);
-      U.sheet(`<h2 class="sh-h">More</h2><nav class="more-nav">${items.map(i => `<button class="nl" data-go="${i}">${ic(U.NAV[i][1])}<span>${U.NAV[i][0]}</span></button>`).join('')}<button class="nl" data-go="notifs">${ic('bell')}<span>Notifications</span></button><button class="nl" data-act="roles">${ic('swap')}<span>Switch role</span></button><button class="nl" data-act="reset">${ic('undo')}<span>Reset demo</span></button></nav>`);
+      // Pages as a grid of tiles, then the settings that leave the top bar on a phone.
+      const tile = (attr, icon, label) => `<button class="more-t" ${attr}>${ic(icon)}<span>${label}</span></button>`;
+      U.sheet(`<h2 class="sh-h">More</h2><nav class="more-grid" aria-label="More pages">${items.map(i => tile(`data-go="${i}"`, U.NAV[i][1], U.NAV[i][0])).join('')}${tile('data-go="notifs"', 'bell', 'Notifications')}</nav>
+        <div class="more-nav"><button class="nl" data-act="colours">${ic('palette')}<span>Colours, light or dark</span></button><button class="nl" data-act="motion-toggle">${ic('spark')}<span>${P.motion === 'on' ? 'Turn animations off' : 'Turn animations on'}</span></button><button class="nl" data-act="roles">${ic('swap')}<span>Switch role</span></button><button class="nl" data-act="reset">${ic('undo')}<span>Reset demo</span></button></div>`);
     },
-    back() { const p = stack.pop(); if (p) U.go(p.view, p.arg); else U.go('home'); },
+    'motion-toggle'() { U.closeSheet(); $('#motionBtn').click(); },
+    back() { U.back(); },
     reset() {
       U.sheet(`<h2 class="sh-h">Reset the demo?</h2><p class="note">This clears what you changed in this browser: reports sent, payments, bookings and new items. The sample data comes back.</p><div class="row-btns"><button class="btn ink" data-act="reset-yes">Reset demo</button><button class="btn" data-act="close">Keep my changes</button></div>`);
     },
@@ -99,7 +103,7 @@
     },
     accept(el) {
       const c = U.club(el.dataset.id), r = U.report(c, 3), rl = U.role();
-      const next = ['grr', 'grs', 'gco'].includes(rl) && r.status === 'grs' ? 'drs' : 'accepted';
+      const next = !U.isLead() && r.status === 'grs' ? 'drs' : 'accepted';
       U.setReport(c, 3, { status: next, comment: '' }, next === 'drs' ? 'Checked by GRS and sent to DRS' : 'Accepted by ' + roleLabel(rl));
       notify(next === 'drs' ? 'drs' : 'pres', next === 'drs' ? `${c.name} October report is ready for you.` : 'Your October report was accepted.', next === 'drs' ? 'report-' + c.id : 'home');
       if (next !== 'drs') notify('sec', 'Your October report was accepted.', 'home');
@@ -185,8 +189,6 @@
     },
 
     /* visits */
-    book(el) { P.visits[el.dataset.id] = cos().id; save(); U.confetti(...centerOf(el)); rerender(); U.toast('Visit booked. The DRR sees it on their calendar.'); },
-    unbook(el) { P.visits[el.dataset.id] = 0; save(); rerender(); U.toast('Slot released. Pick a new one.', 'info'); },
 
     /* initiatives */
     'new-initiative'() {
@@ -300,6 +302,7 @@
     weight: el => { P.weights = Object.assign({}, P.weights || { reports: 30, projects: 25, hours: 15, events: 15, fees: 10, inits: 5 }, { [el.dataset.k]: Number(el.value) }); save(); $('#wo-' + el.dataset.k).textContent = el.value; $('#scoreList').innerHTML = U.scoreList(); }
   };
 
+  U.hasAct = k => !!A[k];
   Object.assign(A, U.extraActions); Object.assign(F, U.extraForms); Object.assign(I, U.extraInputs);
 
   /* ---------- listeners ---------- */
@@ -315,7 +318,7 @@
       e.preventDefault();
       if (g.closest('#sheet')) U.closeSheet();
       const arg = g.dataset.arg != null ? g.dataset.arg : null;
-      go(g.dataset.go, arg);
+      go(g.dataset.go, arg, g.closest('#side, #tabbar, .more-grid, .more-nav') ? 'menu' : 'link');
     }
   });
   document.addEventListener('change', e => { const el = e.target.closest('[data-on]'); if (el && I[el.dataset.on] && el.type !== 'search' && el.type !== 'text') I[el.dataset.on](el, e); if (el && el.dataset.act === 'mod') A.mod(el); });
@@ -351,7 +354,7 @@
   $('#reset').addEventListener('click', () => A.reset());
   $('#brandGear').innerHTML = U.gear();
   $('#who').addEventListener('click', () => A.roles());
-  // A link can pick the seat, for reviewers: ?role=pres or ?role=gco&club=college, plus ?theme=dark and ?accent=royal.
+  // A link can pick the seat, for reviewers: ?role=pres or ?role=gco&club=college, plus ?theme=dark and ?accent=rose.
   const qs = new URLSearchParams(location.search);
   if (qs.get('role') && U.ROLES[qs.get('role')]) P.role = qs.get('role');
   if (qs.get('role') === 'landing') delete P.role;
@@ -366,6 +369,7 @@
   const m = h.match(/^([a-z]+)(?:-(.+))?$/);
   if (P.role) U.setCur({ view: m && h !== 'roles' ? m[1] : 'home', arg: m && m[2] ? (isNaN(m[2]) ? m[2] : Number(m[2])) : null });
   else U.setCur({ view: 'roles', arg: null });
+  try { history.replaceState({ v: U.cur().view, arg: U.cur().arg }, '', location.hash || '#' + U.cur().view); } catch (e) { /* frame may refuse */ }
   U.render({ instant: true });
   loader(() => {});
 })();

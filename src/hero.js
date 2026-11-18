@@ -14,7 +14,7 @@ let stage = null, loading = null;
 function tokens() {
   const css = getComputedStyle(document.documentElement), c = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
   const read = name => { c.clearRect(0, 0, 1, 1); c.fillStyle = css.getPropertyValue(name).trim() || '#fff'; c.fillRect(0, 0, 1, 1); const d = c.getImageData(0, 0, 1, 1).data; return [d[0] / 255, d[1] / 255, d[2] / 255]; };
-  const map = { skyTop: '--h-top', skyMid: '--h-mid', skyLow: '--h-low', skyHor: '--h-hor', glow: '--h-glow', haze: '--h-haze', seaDeep: '--h-sea', seaFar: '--h-sea-far', envLow: '--h-env-low', envHigh: '--h-env-high', wheel: '--h-wheel', sil: '--h-sil', silFar: '--h-sil-far', window: '--h-win', spark1: '--h-spark1', spark2: '--h-spark2' };
+  const map = { bg: '--h-bg', edge: '--h-edge', blob: '--h-blob', blob2: '--h-blob2', floor: '--h-floor', shadow: '--h-shadow', envLow: '--h-env-low', envHigh: '--h-env-high', wheel: '--h-accent', pearl: '--h-pearl', rose: '--h-rose', spark1: '--h-accent', spark2: '--h-spark2' };
   return Object.fromEntries(Object.entries(map).map(([k, v]) => [k, read(v)]));
 }
 
@@ -44,3 +44,6 @@ export const setScroll = v => { if (stage) stage.setScroll(v); };
 export const skip = () => { if (stage) stage.skip(); };
 export const motion = () => { if (stage) stage.motion(); };
 export const current = () => stage;
+// Light, dark or a new district pink: repaint the scene from the same tokens.
+export const recolor = () => { if (stage) stage.recolor(tokens()); };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', recolor);
