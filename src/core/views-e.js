@@ -3,76 +3,14 @@
 (function () {
   const U = UI, { esc, num, inr, ic, pct, P, save } = U;
   const head = (...a) => U.head(...a);
-  const A = {}, F = {}, I = {};
+  // Earlier view files may have registered handlers already; keep them.
+  const A = U.extraActions || {}, F = U.extraForms || {}, I = U.extraInputs || {};
   U.extraActions = A; U.extraForms = F; U.extraInputs = I;
   const chipRow = (name, opts, on, extra = {}) => `<div class="chips" role="radiogroup">${opts.map(o => {
     const label = typeof o === 'string' ? o : o.label, tag = typeof o === 'string' ? '' : o.tag || '';
     return `<button type="button" class="chip${label === on ? ' on' : ''}" role="radio" aria-checked="${label === on}" data-act="pick" data-name="${name}" data-v="${esc(label)}">${esc(label)}${tag ? `<small class="chip-tag">${esc(tag)}</small>` : ''}</button>`;
   }).join('')}<input type="hidden" name="${name}" value="${esc(on || '')}"></div>`;
   const dayStr = () => new Date().toISOString().slice(0, 10);
-
-  /* =====================================================================
-     Seat allotment: the district gives each group a pool, the GRR or GRS spreads it over the clubs.
-     ===================================================================== */
-  const SF = { ev: null, g: 6 };
-  U.view('seats', arg => {
-    const evs = U.seatEvents();
-    if (arg && evs.find(x => x.id === arg)) SF.ev = arg;
-    const e = evs.find(x => x.id === SF.ev) || evs[0];
-    SF.ev = e.id;
-    const district = U.level() === 'district';
-    const gid = district ? SF.g : U.MY_GROUP;
-    const g = D.GROUPS[gid - 1];
-    const cs = U.activeClubs().filter(c => U.groupOf(c) === gid);
-    const pool = U.poolOf(e, gid), used = U.spent(e, gid), left = pool - used;
-    const canEdit = U.can.seats();
-    const poolsTotal = D.GROUPS.reduce((a, x) => a + U.poolOf(e, x.id), 0);
-    const evChip = x => `<button class="chip${x.id === e.id ? ' on' : ''}" data-act="seat-event" data-v="${x.id}" aria-pressed="${x.id === e.id}">${esc(x.name)}</button>`;
-    const gChip = x => `<button class="chip${x.id === gid ? ' on' : ''}" style="--g:${U.gcolor(x.id)}" data-act="seat-group" data-v="${x.id}" aria-pressed="${x.id === gid}">Group ${x.id}</button>`;
-    const stepper = (act, attrs, v, minus, plus) => `<div class="st-ctl"><button type="button" class="stp" data-act="${act}" ${attrs} data-d="-1" ${minus ? '' : 'disabled'} aria-label="One seat fewer">${ic('minus')}</button><output class="fig">${v}</output><button type="button" class="stp" data-act="${act}" ${attrs} data-d="1" ${plus ? '' : 'disabled'} aria-label="One seat more">${ic('plus')}</button></div>`;
-    return `${head('Seat allotment', 'The district gives each group a pool of seats. The GRR or GRS spreads them over the clubs in the group. Each club\'s fee follows its seats.', district ? `<button class="btn" data-act="export-seats">${ic('upload')}Export allotment</button>` : '')}
-    <div class="chips" aria-label="Event">${evs.map(evChip).join('')}</div>
-    ${district ? `<section class="card">
-      <div class="card-h"><h2>Group pools, ${esc(e.name)}</h2><span class="muted fig">${poolsTotal}${e.seats ? ' of ' + e.seats : ''} seats given out</span></div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Group</th><th>GRR and GRS</th><th class="r">Clubs</th><th>Pool</th><th class="r">Spread</th></tr></thead><tbody>${D.GROUPS.map(x => {
-        const p = U.poolOf(e, x.id), u = U.spent(e, x.id);
-        const room = e.seats ? poolsTotal < e.seats : true;
-        return `<tr><td>${U.gpill(x.id)}</td><td><small class="sub">${esc(x.grr)}, ${esc(x.grs)}</small></td><td class="fig r">${U.activeClubs().filter(c => U.groupOf(c) === x.id).length}</td><td>${stepper('pool-step', `data-g="${x.id}"`, p, p > u, room)}</td><td class="fig r">${u} of ${p}</td></tr>`;
-      }).join('')}</tbody></table></div>
-      <p class="note">Changing a pool never takes seats away from clubs that already have them. Drop a club's seats first to lower a pool.</p>
-    </section>
-    <div class="chips" aria-label="Group">${D.GROUPS.map(gChip).join('')}</div>` : ''}
-    <section class="card">
-      <div class="card-h"><h2>Clubs in ${g.name}, ${esc(e.name)}</h2><span class="muted fig">${left} of ${pool} seats left to give</span></div>
-      <div class="prog"><span class="bt"><i style="--w:${pool ? (used / pool).toFixed(2) : 0}"></i></span><span class="fig">${used} of ${pool}</span></div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Club</th><th>Type</th><th>Seats</th><th class="r">Registered</th>${e.fee ? '<th class="r">Fee for the club</th>' : ''}</tr></thead><tbody>${cs.map(c => {
-        const n = U.seatsOf(e, c), rg = U.regOf(e, c), reg = rg ? Object.values(rg).filter(x => x.paid).length : null;
-        return `<tr><td><b>${esc(c.name)}</b><small class="sub">${c.members} members</small></td><td>${c.type}</td><td>${canEdit ? stepper('seat-step', `data-c="${c.id}" data-g="${gid}"`, n, n > 0, left > 0) : `<b class="fig">${n}</b>`}</td><td class="fig r">${reg == null ? '<span class="muted">not started</span>' : reg}</td>${e.fee ? `<td class="fig r">${inr((reg == null ? n : reg) * e.fee)}</td>` : ''}</tr>`;
-      }).join('')}</tbody></table></div>
-      ${canEdit ? '' : '<p class="note">Your group lead gives the seats.</p>'}
-      <p class="note">${e.fee ? `${inr(e.fee)} a seat. ` : ''}The club sees its seats on the event page and the fee in its wallet. Nothing is typed twice.</p>
-    </section>`;
-  });
-  const ensure = id => (P.alloc[id] = P.alloc[id] || { club: {}, pool: {} });
-  A['seat-event'] = el => { SF.ev = el.dataset.v; U.rerender(); };
-  A['seat-group'] = el => { SF.g = Number(el.dataset.v); U.rerender(); };
-  A['seat-step'] = el => {
-    const e = D.EVENTS.find(x => x.id === SF.ev), c = U.club(el.dataset.c), g = Number(el.dataset.g), d = Number(el.dataset.d);
-    const cur = U.seatsOf(e, c), next = cur + d;
-    if (next < 0 || (d > 0 && U.spent(e, g) + d > U.poolOf(e, g))) return;
-    ensure(e.id).club[c.id] = next; save(); U.resetScore && U.resetScore(); U.rerender();
-  };
-  A['pool-step'] = el => {
-    const e = D.EVENTS.find(x => x.id === SF.ev), g = Number(el.dataset.g), d = Number(el.dataset.d);
-    const next = U.poolOf(e, g) + d;
-    if (next < U.spent(e, g)) return;
-    ensure(e.id).pool[g] = next; save(); U.rerender();
-  };
-  A['export-seats'] = () => {
-    const rows = [['Event', 'Group', 'Club', 'Club type', 'Seats', 'Fee per seat', 'Fee for the club']];
-    U.seatEvents().forEach(e => U.activeClubs().forEach(c => rows.push([e.name, 'Group ' + U.groupOf(c), c.name, c.type, U.seatsOf(e, c), e.fee || 0, (e.fee || 0) * U.seatsOf(e, c)])));
-    U.download('seat-allotment.csv', rows); U.toast('Seat allotment downloaded');
-  };
 
   /* =====================================================================
      Group coordinator desk: every GRR and GRS in one place.
@@ -85,10 +23,10 @@
       const waiting = cs.filter(c => U.report(c, 3).status === 'grs').length;
       const late = cs.filter(c => ['none', 'draft', 'returned'].includes(U.report(c, 3).status)).length;
       const ryla = D.EVENTS.find(e => e.id === 'ryla');
-      return { g, cs, ok, waiting, late, left: U.poolOf(ryla, g.id) - U.spent(ryla, g.id) };
+      return { g, cs, ok, waiting, late, left: cs.filter(c => U.countOf(ryla, c) == null).length };
     });
     const waitingAll = rows.reduce((a, r) => a + r.waiting, 0), lateAll = rows.reduce((a, r) => a + r.late, 0);
-    return `${head('Group desk', 'You look after every GRR and GRS. See which group needs a push, move clubs between groups and spread seats.', `<button class="btn" data-act="export-data">${ic('upload')}Export district data</button><button class="btn ink" data-go="seats">${ic('id')}Assign seats</button>`)}
+    return `${head('Group desk', 'You look after every GRR and GRS. See which group needs a push, and move clubs between groups.', `<button class="btn" data-act="export-data">${ic('upload')}Export district data</button>`)}
     <div class="stats">
       ${U.fig(7, 'Groups', '7 GRRs and 7 GRSs')}
       ${U.fig(act.length, 'Active clubs')}
@@ -97,7 +35,7 @@
     </div>
     <section class="card">
       <div class="card-h"><h2>Every group</h2><span class="muted">GRR and GRS of each</span></div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Group</th><th>GRR</th><th>GRS</th><th class="r">Clubs</th><th>October accepted</th><th class="r">Waiting for check</th><th class="r">RYLA seats left</th><th><span class="sr">Open</span></th></tr></thead><tbody>${rows.map(r => `<tr><td>${U.gpill(r.g.id)}<small class="sub">${esc(r.g.area)}</small></td><td>${esc(r.g.grr)}</td><td>${esc(r.g.grs)}</td><td class="fig r">${r.cs.length}</td><td>${U.ring ? `<span class="fig">${pct(r.ok, r.cs.length)}%</span>` : ''}</td><td class="fig r">${r.waiting}</td><td class="fig r">${r.left}</td><td class="r"><button class="btn sm" data-go="group" data-arg="${r.g.id}">Open</button></td></tr>`).join('')}</tbody></table></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Group</th><th>GRR</th><th>GRS</th><th class="r">Clubs</th><th>October accepted</th><th class="r">Waiting for check</th><th class="r">RYLA counts to fix</th><th><span class="sr">Open</span></th></tr></thead><tbody>${rows.map(r => `<tr><td>${U.gpill(r.g.id)}<small class="sub">${esc(r.g.area)}</small></td><td>${esc(r.g.grr)}</td><td>${esc(r.g.grs)}</td><td class="fig r">${r.cs.length}</td><td>${U.ring ? `<span class="fig">${pct(r.ok, r.cs.length)}%</span>` : ''}</td><td class="fig r">${r.waiting}</td><td class="fig r">${r.left}</td><td class="r"><button class="btn sm" data-go="group" data-arg="${r.g.id}">Open</button></td></tr>`).join('')}</tbody></table></div>
     </section>
     <section class="card"><div class="card-h"><h2>Group race</h2><span class="muted">October reports</span></div>${U.race(U.groupStandings())}</section>`;
   };
@@ -281,7 +219,6 @@ Here are the member details:
     ['members', 'Members', 'All members with club, post and ID. Phone and email stay with the clubs.', () => []],
     ['reports', 'Monthly reports', 'Every club\'s status for each month, with projects, hours and beneficiaries', () => { const rows = [['Club', 'Group', 'Month', 'Status', 'Late', 'Projects', 'Service hours', 'Beneficiaries']]; U.clubs().forEach(c => D.MONTHS.forEach((m, i) => { const r = U.report(c, i), ps = U.projects(c, i); rows.push([c.name, 'Group ' + U.groupOf(c), m.label, U.RS[r.status][0], r.late ? 'yes' : 'no', ps.length, ps.reduce((a, p) => a + p.manHours, 0), ps.reduce((a, p) => a + p.beneficiaries, 0)]); })); return rows; }],
     ['payments', 'Payments', 'Every fee and due for every club, with status and UPI reference', () => { const rows = [['Club', 'Group', 'Fee', 'Detail', 'Amount (INR)', 'Due', 'Status', 'Reference']]; U.clubs().forEach(c => U.wallet(c).forEach(w => rows.push([c.name, 'Group ' + U.groupOf(c), w.head, w.detail, w.amount, w.due, U.PAY[w.status][0], w.ref || '']))); return rows; }],
-    ['seats', 'Seat allotment', 'Seats each club holds for each event, and the fee that follows', () => { const rows = [['Event', 'Group', 'Club', 'Seats', 'Fee for the club (INR)']]; U.seatEvents().forEach(e => U.activeClubs().forEach(c => rows.push([e.name, 'Group ' + U.groupOf(c), c.name, U.seatsOf(e, c), (e.fee || 0) * U.seatsOf(e, c)]))); return rows; }],
     ['drc', 'DRC bookings', 'Which club booked which slot at each District Rotaract Council meeting', () => U.drcRows()],
     ['moms', 'Minutes of Meeting', 'Published minutes with decisions and action items', () => U.momRows()],
     ['events', 'Events', 'The district year: dates, chairs and results', () => [['Event', 'Kind', 'Date', 'Status', 'Chair', 'Attended']].concat(D.EVENTS.map(e => [e.name, e.kind, e.date, e.status, e.chair, e.attendance || '']))]
@@ -380,44 +317,44 @@ Here are the member details:
   /* =====================================================================
      Colours: the whole site's accent, and light or dark.
      ===================================================================== */
+  // Every choice is a Rotaract pink: the site stays white and pink whichever one the district picks.
   const ACCENTS = [
-    { id: 'default', name: 'Season colour', h: 4, c: 0.215, L: 57 },
-    { id: 'cranberry', name: 'Rotaract cranberry', h: 5, c: 0.21, L: 55 },
-    { id: 'royal', name: 'Rotary royal blue', h: 258, c: 0.15, L: 48 },
-    { id: 'gold', name: 'Rotary gold', h: 85, c: 0.15, L: 76, ink: 'oklch(22% 0.05 80)' },
-    { id: 'teal', name: 'Teal', h: 196, c: 0.11, L: 52 },
-    { id: 'forest', name: 'Forest', h: 155, c: 0.13, L: 50 },
-    { id: 'violet', name: 'Violet', h: 298, c: 0.19, L: 50 },
-    { id: 'terracotta', name: 'Chennai terracotta', h: 40, c: 0.15, L: 55 },
-    { id: 'slate', name: 'Slate', h: 250, c: 0.04, L: 40 }
+    { id: 'default', name: 'Rotaract pink', h: 1, c: 0.215, L: 56 },
+    { id: 'cranberry', name: 'Cranberry', h: 2, c: 0.2, L: 48 },
+    { id: 'rose', name: 'Rose', h: 8, c: 0.19, L: 60 },
+    { id: 'magenta', name: 'Magenta', h: 345, c: 0.22, L: 54 },
+    { id: 'berry', name: 'Berry', h: 355, c: 0.17, L: 42 },
+    { id: 'blush', name: 'Blush', h: 358, c: 0.15, L: 66 }
   ];
   U.applyTheme = () => {
     const root = document.documentElement;
     if (P.theme === 'light' || P.theme === 'dark') root.setAttribute('data-theme', P.theme); else root.removeAttribute('data-theme');
     let st = document.getElementById('accentCss');
     const a = ACCENTS.find(x => x.id === P.accent);
-    if (!a || a.id === 'default') { root.removeAttribute('data-accent'); if (st) st.textContent = ''; return; }
-    if (!st) { st = document.createElement('style'); st.id = 'accentCss'; document.head.appendChild(st); }
-    const lt = `--accent:oklch(${a.L}% ${a.c} ${a.h});--accent-2:oklch(${a.L - 7}% ${a.c} ${a.h});--accent-soft:oklch(94% ${Math.min(0.05, a.c / 3)} ${a.h});--focus:oklch(${a.L}% ${a.c} ${a.h});--icon-accent:oklch(${a.L}% ${a.c} ${a.h});--on-accent:${a.ink || 'oklch(99% 0.004 80)'};`;
-    const L2 = Math.min(82, a.L + 14);
-    const dk = `--accent:oklch(${L2}% ${a.c} ${a.h});--accent-2:oklch(${Math.min(88, L2 + 6)}% ${a.c} ${a.h});--accent-soft:oklch(30% ${Math.min(0.09, a.c / 2)} ${a.h});--focus:oklch(${L2}% ${a.c} ${a.h});--icon-accent:oklch(${L2}% ${a.c} ${a.h});--on-accent:${a.ink ? a.ink : 'oklch(15% 0.035 258)'};`;
-    st.textContent = `html:root[data-accent]{${lt}}@media (prefers-color-scheme:dark){html:root[data-accent]:not([data-theme="light"]){${dk}}}html:root[data-accent][data-theme="dark"]{${dk}}`;
-    root.setAttribute('data-accent', a.id);
+    if (!a || a.id === 'default') { root.removeAttribute('data-accent'); if (st) st.textContent = ''; }
+    else {
+      if (!st) { st = document.createElement('style'); st.id = 'accentCss'; document.head.appendChild(st); }
+      const v = (L, soft) => `--accent:oklch(${L}% ${a.c} ${a.h});--accent-2:oklch(${L + (soft > 50 ? -7 : 7)}% ${a.c} ${a.h});--accent-soft:oklch(${soft}% ${soft > 50 ? Math.min(0.03, a.c / 6) : 0.08} ${a.h});--focus:oklch(${L}% ${a.c} ${a.h});--icon-accent:oklch(${L}% ${a.c} ${a.h});--h-accent:oklch(${L}% ${a.c} ${a.h});`;
+      const dk = v(Math.min(78, a.L + 14), 29);
+      st.textContent = `html:root[data-accent]{${v(a.L, 95.6)}}@media (prefers-color-scheme:dark){html:root[data-accent]:not([data-theme="light"]){${dk}}}html:root[data-accent][data-theme="dark"]{${dk}}`;
+      root.setAttribute('data-accent', a.id);
+    }
+    if (window.MO && window.MO.heroColors) window.MO.heroColors();
   };
-  // The accent colour is the district's look: only the DRR and DRS set it, and it shows for everyone. Light or dark is each person's own.
+  // The pink shade is the district's look: only the DRR and DRS set it, and it shows for everyone. Light or dark is each person's own.
   const canAccent = () => ['drr', 'drs'].includes(U.role());
   A.colours = () => {
     const seg = (v, l) => `<button type="button" class="${P.theme === v ? 'on' : ''}" role="radio" aria-checked="${P.theme === v}" data-act="theme-set" data-v="${v}">${l}</button>`;
-    const accent = canAccent() ? `<h3 class="sub-h">District accent colour</h3><p class="note">You set this for the whole district. Everyone sees it, on every screen and on the start page.</p>
-      <div class="acc-grid" role="radiogroup" aria-label="District accent colour">${ACCENTS.map(a => `<button type="button" class="acc${P.accent === a.id ? ' on' : ''}" role="radio" aria-checked="${P.accent === a.id}" style="--g:oklch(${a.L}% ${a.c} ${a.h})" data-act="accent-set" data-v="${a.id}"><i></i><span>${esc(a.name)}</span></button>`).join('')}</div>` : '';
-    U.sheet(`<h2 class="sh-h">Colours</h2><p class="note">${canAccent() ? 'Pick the district\'s accent colour, and your own light or dark.' : 'Pick light or dark for yourself. The accent colour is set by the DRR or the DRS.'}</p>
-      ${accent}
+    const accent = canAccent() ? `<h3 class="sub-h">District pink</h3><p class="note">You pick the shade of pink everyone sees, on every screen and on the start page.</p>
+      <div class="acc-grid" role="radiogroup" aria-label="District colour">${ACCENTS.map(a => `<button type="button" class="acc${P.accent === a.id ? ' on' : ''}" role="radio" aria-checked="${P.accent === a.id}" style="--g:oklch(${a.L}% ${a.c} ${a.h})" data-act="accent-set" data-v="${a.id}"><i></i><span>${esc(a.name)}</span></button>`).join('')}</div>` : '';
+    U.sheet(`<h2 class="sh-h">Colours</h2><p class="note">White and pink by day, deep plum and pink by night.</p>
       <h3 class="sub-h">Light or dark</h3>
       <div class="seg" role="radiogroup" aria-label="Theme">${seg('auto', 'Match my device')}${seg('light', 'Light')}${seg('dark', 'Dark')}</div>
-      <p class="note">${canAccent() ? 'The group colours and the colour of each initiative are set separately, on the Season page and in each initiative.' : 'This is saved in this browser and is only for you.'}</p>`);
+      ${accent}
+      <p class="note">${canAccent() ? 'Light or dark is each person\'s own choice. Group colours are set on the Season page.' : 'This is saved in this browser and is only for you. The shade of pink is set by the DRR or the DRS.'}</p>`);
   };
-  A['accent-set'] = el => { if (!canAccent()) return; P.accent = el.dataset.v; save(); U.applyTheme(); A.colours(); };
   A['theme-set'] = el => { P.theme = el.dataset.v; save(); U.applyTheme(); A.colours(); };
+  A['accent-set'] = el => { if (!canAccent()) return; P.accent = el.dataset.v; save(); U.applyTheme(); A.colours(); };
 
   /* =====================================================================
      The public start page: about, history, events, gallery, leadership, clubs, contact.
@@ -426,25 +363,65 @@ Here are the member details:
     ['orient', 'District Orientation', '6 Jul 2026', 'Training'], ['dols', 'DOLS', '13 Jul 2026', 'Training'], ['assembly', 'District Assembly', '10 Aug 2026', 'Flagship'],
     ['josh', 'JOSH District Culturals', '21 Sep 2026', 'Culturals'], ['blood', 'Blood Donation Megacamp', '2 Oct 2026', 'Service']
   ];
-  const TONES = { Training: [255, 200], Flagship: [4, 80], Culturals: [298, 60], Service: [155, 120] };
+  // Every album is drawn in the site's pinks; each kind of event gets its own shade.
+  const TONES = { Training: [350, 330], Flagship: [4, 18], Culturals: [338, 352], Service: [358, 8] };
   const tile = (ev, i, big) => {
     const r = D.mulberry32(ev[0].length * 97 + i * 31), [h, h2] = TONES[ev[3]] || [4, 80];
-    const sun = 30 + r() * 40, hills = [0, 1, 2].map(k => { const y = 62 + k * 10 + r() * 6; return `<path d="M0 ${y}Q${25 + r() * 20} ${y - 14 - r() * 8} 50 ${y - 4}T100 ${y - 8}V100H0Z" fill="oklch(${44 - k * 8}% 0.09 ${h + k * 12})" opacity="${0.9 - k * 0.12}"/>`; }).join('');
-    const people = Array.from({ length: 5 + Math.floor(r() * 4) }, () => { const x = 8 + r() * 84, y = 72 + r() * 18; return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})"><circle r="2.2" cy="-5" fill="oklch(90% 0.04 70)"/><path d="M-2.6 0V-3.2h5.2V0Z" fill="oklch(${55 + r() * 25}% 0.14 ${(h + r() * 160) % 360})"/></g>`; }).join('');
-    return `<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${esc(ev[1])}, sample picture"><defs><linearGradient id="gl${i}${big ? 'b' : ''}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="oklch(78% 0.1 ${h2})"/><stop offset="1" stop-color="oklch(92% 0.06 ${h})"/></linearGradient></defs><rect width="100" height="100" fill="url(#gl${i}${big ? 'b' : ''})"/><circle cx="${(25 + r() * 50).toFixed(1)}" cy="${sun.toFixed(1) - 8}" r="${(9 + r() * 5).toFixed(1)}" fill="oklch(96% 0.07 90)" opacity="0.9"/>${hills}${people}</svg>`;
+    const sun = 30 + r() * 40, hills = [0, 1, 2].map(k => { const y = 62 + k * 10 + r() * 6; return `<path d="M0 ${y}Q${25 + r() * 20} ${y - 14 - r() * 8} 50 ${y - 4}T100 ${y - 8}V100H0Z" fill="oklch(${52 - k * 9}% ${0.13 + k * 0.01} ${h + k * 6})" opacity="${0.9 - k * 0.12}"/>`; }).join('');
+    const people = Array.from({ length: 5 + Math.floor(r() * 4) }, () => { const x = 8 + r() * 84, y = 72 + r() * 18; return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})"><circle r="2.2" cy="-5" fill="oklch(90% 0.04 70)"/><path d="M-2.6 0V-3.2h5.2V0Z" fill="oklch(${70 + r() * 25}% 0.08 ${(h + r() * 30) % 360})"/></g>`; }).join('');
+    return `<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${esc(ev[1])}, sample picture"><defs><linearGradient id="gl${i}${big ? 'b' : ''}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="oklch(86% 0.07 ${h2})"/><stop offset="1" stop-color="oklch(97% 0.02 ${h})"/></linearGradient></defs><rect width="100" height="100" fill="url(#gl${i}${big ? 'b' : ''})"/><circle cx="${(25 + r() * 50).toFixed(1)}" cy="${sun.toFixed(1) - 8}" r="${(9 + r() * 5).toFixed(1)}" fill="oklch(100% 0 0)" opacity="0.92"/>${hills}${people}</svg>`;
   };
   const GALLERY = [];
   GAL.forEach((ev, k) => { for (let j = 0; j < (k === 4 ? 3 : 2); j++) GALLERY.push({ ev, n: GALLERY.length, cap: j === 0 ? `${ev[1]}, opening` : j === 1 ? `${ev[1]}, the crowd` : `${ev[1]}, volunteers` }); });
   const GF = { f: 'all' };
   U.GF = GF;
-  const galleryHTML = () => `<div class="chips" aria-label="Album"><button class="chip${GF.f === 'all' ? ' on' : ''}" data-act="gal-f" data-v="all" aria-pressed="${GF.f === 'all'}">All</button>${GAL.map(e => `<button class="chip${GF.f === e[0] ? ' on' : ''}" data-act="gal-f" data-v="${e[0]}" aria-pressed="${GF.f === e[0]}">${esc(e[1])}</button>`).join('')}</div>
-    <div class="gal">${GALLERY.filter(x => GF.f === 'all' || x.ev[0] === GF.f).map(x => `<button class="gal-t" data-act="gal-open" data-n="${x.n}" aria-label="Open ${esc(x.cap)}">${tile(x.ev, x.n)}<span>${esc(x.cap)}</span></button>`).join('')}</div>`;
-  A['gal-f'] = el => { GF.f = el.dataset.v; const box = U.$('#galBox'); if (box) box.innerHTML = galleryHTML(); };
+  // The albums sit in one sideways strip of chips. The pictures float in a strip that drifts sideways on its own,
+  // repeated so it loops without a seam; touching, hovering or scrolling it hands control to the visitor for a moment.
+  const galleryHTML = () => {
+    const list = GALLERY.filter(x => GF.f === 'all' || x.ev[0] === GF.f);
+    const block = Array.from({ length: Math.max(1, Math.ceil(8 / list.length)) }, () => list).flat();
+    const card = (x, i, dup) => `<button class="gal-t" type="button" data-act="gal-open" data-n="${x.n}" style="--i:${i}"${dup ? ' aria-hidden="true" tabindex="-1"' : ` aria-label="Open ${esc(x.cap)}"`}${i === 0 && dup ? ' data-b="1"' : ''}>${tile(x.ev, x.n)}<span>${esc(x.cap)}</span></button>`;
+    return `<div class="chips gal-chips" role="group" aria-label="Album"><button class="chip${GF.f === 'all' ? ' on' : ''}" data-act="gal-f" data-v="all" aria-pressed="${GF.f === 'all'}">All</button>${GAL.map(e => `<button class="chip${GF.f === e[0] ? ' on' : ''}" data-act="gal-f" data-v="${e[0]}" aria-pressed="${GF.f === e[0]}">${esc(e[1])}</button>`).join('')}</div>
+    <div class="gal-rail" data-gal><div class="gal-track">${block.map((x, i) => card(x, i, i >= list.length)).join('')}${block.map((x, i) => card(x, i, true)).join('')}</div></div>`;
+  };
+  A['gal-f'] = el => {
+    GF.f = el.dataset.v; const box = U.$('#galBox'); if (!box) return;
+    const x = box.querySelector('.gal-chips')?.scrollLeft || 0;
+    box.innerHTML = galleryHTML(); box.querySelector('.gal-chips').scrollLeft = x;
+    U.galMarquee();
+  };
+  U.galMarquee = () => {
+    const rail = U.$('[data-gal]'); if (!rail || rail.dataset.run) return;
+    rail.dataset.run = '1';
+    const track = rail.firstElementChild;
+    let x = rail.scrollLeft, last = 0, seen = true, holdUntil = 0;
+    const loopW = () => { const b = track.querySelector('[data-b]'); return b ? b.offsetLeft - track.firstElementChild.offsetLeft : 0; };
+    const hold = ms => () => { holdUntil = performance.now() + ms; };
+    rail.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') holdUntil = Infinity; });
+    rail.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') holdUntil = performance.now() + 400; });
+    ['pointerdown', 'touchstart', 'wheel', 'focusin'].forEach(t => rail.addEventListener(t, hold(2500), { passive: true }));
+    const io = new IntersectionObserver(([en]) => { seen = en.isIntersecting; }); io.observe(rail);
+    const step = now => {
+      if (!rail.isConnected) { io.disconnect(); return; }
+      const dt = last ? Math.min(48, now - last) : 16; last = now;
+      const w = loopW();
+      if (now < holdUntil || !seen || U.calm()) {
+        x = rail.scrollLeft;
+        if (w && x >= w * 1.5) rail.scrollLeft = x -= w;
+      } else {
+        x += dt * 0.04;
+        if (w && x >= w) x -= w;
+        rail.scrollLeft = x;
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
   A['gal-open'] = el => { const x = GALLERY[Number(el.dataset.n)]; U.sheet(`<div class="gal-big">${tile(x.ev, x.n, true)}</div><h2 class="sh-h">${esc(x.cap)}</h2><p class="note">${esc(x.ev[2])}. These pictures are drawings for the demo. Event chairs and photographers upload real ones, sorted by event.</p>`, { wide: true }); };
   A.scroll = el => { const t = U.$(el.dataset.t); if (t) window.scrollTo({ top: t.getBoundingClientRect().top + window.scrollY - 64, behavior: U.calm() ? 'auto' : 'smooth' }); };
   F.contact = f => { f.reset(); U.toast('Message sent to the district office (demo only, nothing is stored)'); };
 
-  U.landingNav = () => `<nav class="land-nav" aria-label="Sections"><span class="ln-brand">${U.gear()}<b>${P.season === 'vibe' ? 'VIBE' : 'ICON'}</b></span><div class="ln-links">${[['about', 'About'], ['pulse', 'Pulse'], ['board', 'Leaderboard'], ['how', 'How it works'], ['history', 'History'], ['events', 'Events'], ['gallery', 'Gallery'], ['team', 'Leadership'], ['clubs-map', 'Clubs'], ['contact', 'Contact']].map(([id, l]) => `<button data-act="scroll" data-t="#${id}">${l}</button>`).join('')}</div><button class="btn sm ink" data-act="scroll" data-t="#roles">Sign in</button></nav>`;
+  U.landingNav = () => `<nav class="land-nav" aria-label="Sections"><span class="ln-brand">${U.gear()}<b>${P.season === 'vibe' ? 'VIBE' : 'ICON'}</b></span><div class="ln-links">${[['about', 'About'], ['board', 'Leaderboard'], ['how', 'How it works'], ['history', 'History'], ['events', 'Events'], ['gallery', 'Gallery'], ['team', 'Leadership'], ['clubs-map', 'Clubs'], ['contact', 'Contact']].map(([id, l]) => `<button data-act="scroll" data-t="#${id}">${l}</button>`).join('')}</div><button class="btn sm ink" data-act="scroll" data-t="#roles">Sign in</button></nav>`;
 
   let TOPM = null;
   const topMembers = () => { if (!TOPM) { const all = []; for (let i = 0; i < D.memberCount; i++) all.push(D.member(i)); TOPM = all.sort((a, b) => b.points - a.points || a.i - b.i).slice(0, 5); } return TOPM; };
@@ -463,12 +440,6 @@ Here are the member details:
           <div class="card"><b>Fees without the chase</b><p class="note">Dues and event seats sit in one club wallet. A club pays once, and the treasurer checks one line.</p></div>
           <div class="card"><b>Every event, every year</b><p class="note">Each event keeps its record, its attendance and its certificates, even when the chair runs sign-ups on their own site.</p></div>
         </div></div></section>
-      <section id="pulse" class="sec alt"><div class="sec-in">
-        <span class="eyebrow">District pulse</span><h2 class="sec-h">The district, in live numbers</h2>
-        <p class="lede">Every scan, project and report rolls up here the moment it happens. No monthly PDFs, no waiting.</p>
-        <div class="stats flat">${U.fig(57, 'Check-ins this month', '36 last month')}${U.fig(D.checkins.reduce((a, c) => a + c.v, 0), 'Check-ins since July')}${U.fig(act.reduce((a, c) => a + U.projects(c, 3).length, 0), 'Projects reported in October')}${U.fig(act.reduce((a, c) => a + U.projects(c, 3).reduce((x, p) => x + p.beneficiaries, 0), 0), 'Beneficiaries in October')}</div>
-        <div class="card"><div class="card-h"><h2>Check-ins by month</h2><span class="muted">QR scans at district events</span></div>${U.spark(D.checkins)}</div>
-      </div></section>
       <section id="board" class="sec"><div class="sec-in">
         <span class="eyebrow">Leaderboard</span><h2 class="sec-h">Who is on top right now</h2>
         <p class="lede">Points land the second a member scans in or a club files on time. Names here are samples.</p>
@@ -478,7 +449,7 @@ Here are the member details:
       <section id="how" class="sec alt"><div class="sec-in">
         <span class="eyebrow">How it works</span><h2 class="sec-h">Three steps, one platform</h2>
         <div class="trio"><div class="card"><span class="eyebrow">Step 1</span><b>Scan in</b><p class="note">Show up to a district event and scan the QR. The sergeant's scan logs your check-in at once.</p></div><div class="card"><span class="eyebrow">Step 2</span><b>Earn points</b><p class="note">Punctuality bonuses, event turnout, on-time reports and initiatives all build your score.</p></div><div class="card"><span class="eyebrow">Step 3</span><b>Climb the board</b><p class="note">See where you and your club stand across the district, and who leads the group race.</p></div></div>
-        <ul class="feat">${['QR attendance: a personal pass, sergeant scans land instantly', 'Live leaderboard: punctuality and turnout, ranked', 'Club management: officers, rosters and posts, kept by each club', 'Project reports: the secretary or president sends, the GRS and DRS review', 'Club wallet: dues and event seats, paid in one go', 'Seat allotment: groups spread RYLA and conference seats over their clubs'].map(t => `<li>${ic('check')}<span>${t}</span></li>`).join('')}</ul>
+        <ul class="feat">${['QR attendance: a personal pass, sergeant scans land instantly', 'Live leaderboard: punctuality and turnout, ranked', 'Club management: officers, rosters and posts, kept by each club', 'Project reports: the secretary or president sends, the GRS and DRS review', 'Club wallet: dues and event seats, paid in one go'].map(t => `<li>${ic('check')}<span>${t}</span></li>`).join('')}</ul>
         <div class="row-btns"><button class="btn ink lg" data-act="scroll" data-t="#roles">Sign in${ic('chev')}</button></div>
       </div></section>
       <section id="history" class="sec"><div class="sec-in">
@@ -500,15 +471,18 @@ Here are the member details:
         <p class="note edit-note">Sample drawings for the demo. Event chairs and the photography team upload the real pictures, and each album follows its event.</p></div></section>
       <section id="team" class="sec alt"><div class="sec-in">
         <span class="eyebrow">Leadership</span><h2 class="sec-h">The people who run the district</h2>
-        <div class="people-grid">${office.map(d => `<div class="card person-c"><span class="pp big">${esc(d.holder.split(' ').map(x => x[0]).join(''))}</span><b>${esc(d.holder)}</b><small class="sub">${esc(d.title)}</small></div>`).join('')}</div>
+        <div class="people-grid">${office.map(d => `<div class="card person-c"><span class="pp big">${esc(d.holder.split(' ').map(x => x[0]).join(''))}</span><span class="pc-t"><b>${esc(d.holder)}</b><small class="sub">${esc(d.title)}</small></span></div>`).join('')}</div>
         <h3 class="sub-h">Group leaders</h3>
-        <div class="people-grid">${D.GROUPS.map(g => `<div class="card person-c" style="--g:${U.gcolor(g.id)}"><span class="gp" style="--g:${U.gcolor(g.id)}">${g.name}</span><small class="sub">${esc(g.area)}</small><b>${esc(g.grr)}</b><small class="sub">GRR</small><b>${esc(g.grs)}</b><small class="sub">GRS</small></div>`).join('')}</div>
+        <div class="people-grid">${D.GROUPS.map(g => `<div class="card gl-c"><div class="gl-h"><span class="gp" style="--g:${U.gcolor(g.id)}">${g.name}</span><small class="sub">${esc(g.area)}</small></div><dl class="gl-l"><div><dt>GRR</dt><dd>${esc(g.grr)}</dd></div><div><dt>GRS</dt><dd>${esc(g.grs)}</dd></div></dl></div>`).join('')}</div>
       </div></section>
       <section id="clubs-map" class="sec"><div class="sec-in two">
         <div><span class="eyebrow">Clubs</span><h2 class="sec-h">${act.length} clubs, seven groups</h2>
-          <p class="lede">${college} college clubs with ${num(memC)} members and ${act.length - college} community clubs with ${num(memK)} members, from Ennore in the north to Siruseri in the south.</p>
-          <ul class="legend vert"><li><i class="lg ok"></i>Community club</li><li><i class="lg warn"></i>College club</li></ul></div>
-        <div class="map-box">${U.mapSVG({ plain: true, dotClass: c => (c.type === 'College' ? 'warn' : 'ok') })}</div>
+          <p class="lede">${college} college clubs with ${num(memC)} members and ${act.length - college} community clubs with ${num(memK)} members.</p>
+          <ul class="legend vert"><li><i class="lg com"></i>Community club</li><li><i class="lg col"></i>College club</li></ul></div>
+        <div class="card"><ul class="g-split">${[1, 2, 3, 4, 5, 6, 7].map(g => {
+          const cs = act.filter(c => U.groupOf(c) === g), col = cs.filter(c => c.type === 'College').length, max = Math.max(...[1, 2, 3, 4, 5, 6, 7].map(k => act.filter(c => U.groupOf(c) === k).length));
+          return `<li><span class="gp" style="--g:${U.gcolor(g)}">Group ${g}</span><span class="g-bar" style="--w:${(cs.length / max * 100).toFixed(1)}%"><i class="col" style="flex:${col}"></i><i class="com" style="flex:${cs.length - col}"></i></span><b class="fig">${cs.length}</b></li>`;
+        }).join('')}</ul></div>
       </div></section>
       <section id="contact" class="sec alt"><div class="sec-in two">
         <div><span class="eyebrow">Contact</span><h2 class="sec-h">Talk to the district office</h2><p class="lede">Want to start a club, join one, or invite the district to an event? Write to us and the office replies.</p></div>

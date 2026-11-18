@@ -13,10 +13,8 @@
      queue, so the list fills in the order people book. The DRR, the District Sergeant-at-Arms and the
      Associate District Sergeant-at-Arms rearrange it; every time follows from the order and the minutes.
      ===================================================================== */
-  const MANAGE = ['drr', 'dsgt', 'adsgt'], WATCH = ['drs', 'gco'];
+  const MANAGE = ['drr', 'drs', 'dsgt', 'adsgt'], WATCH = ['adrr', 'adrs', 'gco'];
   const BOOKERS = ['pres', 'sec', 'grr', 'grs', 'dir', 'chair'];
-  const KIND_MIN = { Club: 5, Group: 5, 'District officer': 5, 'Event team': 10 };
-  const MINS = [3, 5, 7, 10, 15, 20];
   const manager = () => MANAGE.includes(U.role());
   const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
   const clock = n => { const h = Math.floor(n / 60) % 24, m = n % 60; return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'pm' : 'am'}`; };
@@ -45,7 +43,7 @@
     const groups = [2, 5].filter(g => g !== U.MY_GROUP).map(g => ({ k: 'g' + g, name: `Group ${g} team`, kind: 'Group', by: 'GRR and GRS', g }));
     const TOPIC = { 'Assembly team': 'Venue, dates and the club quota', 'Conference team': 'Theme reveal and delegate fees', 'Director, Club Service': 'Club installation checklist', 'Chief PRO': 'Reel of the month rules', 'Director, Community Service': 'Marina clean sweep update' };
     const mk = (id, date, start, venue, list) => {
-      const q = list.sort(() => rnd() - 0.5).map((b, i) => Object.assign(b, { id: id + '-' + i, n: i + 1, min: KIND_MIN[b.kind], topic: TOPIC[b.name] || '' }));
+      const q = list.sort(() => rnd() - 0.5).map((b, i) => Object.assign(b, { id: id + '-' + i, n: i + 1, topic: TOPIC[b.name] || '' }));
       return { id, date, start, venue, status: 'open', published: false, changed: false, q, seq: q.length };
     };
     return [
@@ -56,75 +54,71 @@
   const meetings = () => { if (!P.drcM) { P.drcM = seed(); save(); } return P.drcM; };
   const DF = { m: null, moved: null };
   const current = () => { const ms = meetings(); return ms.find(x => x.id === DF.m) || ms[0]; };
-  const times = m => { let t = toMin(m.start); return m.q.map(b => { const s = t; t += b.min; return s; }); };
-  const endOf = m => toMin(m.start) + m.q.reduce((n, b) => n + b.min, 0);
   const touch = m => { if (m.published) m.changed = true; save(); };
 
   U.drcCount = () => meetings().map(m => m.q.length);
-  U.drcRows = () => { const rows = [['Meeting', 'Slot', 'Time', 'Minutes', 'Presenting', 'Kind', 'Booked by', 'Topic']]; meetings().forEach(m => { const ts = times(m); m.q.forEach((b, i) => rows.push([longDay(m.date), i + 1, clock(ts[i]), b.min, b.name, b.kind, b.by, b.topic])); }); return rows; };
+  U.drcRows = () => { const rows = [['Meeting', 'Slot', 'Presenting', 'Kind', 'Booked by', 'Topic']]; meetings().forEach(m => m.q.forEach((b, i) => rows.push([longDay(m.date), i + 1, b.name, b.kind, b.by, b.topic]))); return rows; };
 
   const kindTag = b => b.kind === 'Group' ? U.gpill(b.g) : `<span class="kd" data-k="${esc(b.kind)}">${esc(b.kind)}</span>`;
   const statusPill = m => m.published ? (m.changed ? U.pill('Changes not published', 'warn') : U.pill('Order published', 'ok')) : m.status === 'open' ? U.pill('Booking open', 'neutral') : U.pill('Booking closed', 'warn');
   const meetChips = m => `<div class="chips" aria-label="Meeting">${meetings().map(x => `<button class="chip${x.id === m.id ? ' on' : ''}" data-act="drc-m" data-v="${x.id}" aria-pressed="${x.id === m.id}">DRC, ${esc(day(x.date))}</button>`).join('')}</div>`;
 
-  function managerRow(m, b, i, t) {
+  function managerRow(m, b, i) {
     const opt = (v, sel, label) => `<option value="${v}"${v === sel ? ' selected' : ''}>${label}</option>`;
     return `<li class="dq-row${DF.moved === b.id ? ' moved' : ''}" data-flip-id="${b.id}" data-i="${i}">
       <button class="dq-grip" type="button" aria-label="Move ${esc(b.name)}. Drag, or use the arrow keys" data-m="${m.id}" data-i="${i}">${ic('menu')}</button>
       <span class="dq-pos fig">${i + 1}</span>
-      <span class="dq-time fig">${clock(t)}</span>
       <span class="dq-who"><b>${esc(b.name)}</b><small>${kindTag(b)} <span>Booked ${ordinal(b.n)}${b.by !== b.name ? ' by ' + esc(b.by) : ''}</span>${b.topic ? `<span class="dq-topic">${esc(b.topic)}</span>` : ''}</small></span>
       <span class="dq-ctl">
-        <label class="sel dq-min"><span class="sr">Minutes for ${esc(b.name)}</span><select data-on="drc-min" data-m="${m.id}" data-i="${i}">${MINS.concat(MINS.includes(b.min) ? [] : [b.min]).sort((a, z) => a - z).map(v => opt(v, b.min, v + ' min')).join('')}</select></label>
         <label class="sel dq-to"><span class="sr">Move ${esc(b.name)} to slot</span><select data-on="drc-to" data-m="${m.id}" data-i="${i}">${m.q.map((_, j) => opt(j, i, 'Slot ' + (j + 1))).join('')}</select></label>
         <button class="icon-btn sm" type="button" aria-label="Move ${esc(b.name)} up" data-act="drc-up" data-m="${m.id}" data-i="${i}" ${i === 0 ? 'disabled' : ''}>${ic('chev', 'up')}</button>
         <button class="icon-btn sm" type="button" aria-label="Move ${esc(b.name)} down" data-act="drc-down" data-m="${m.id}" data-i="${i}" ${i === m.q.length - 1 ? 'disabled' : ''}>${ic('chev')}</button>
         <button class="icon-btn sm" type="button" aria-label="Remove ${esc(b.name)}" data-act="drc-rm" data-m="${m.id}" data-i="${i}">${ic('x')}</button>
       </span></li>`;
   }
-  const plainRow = (b, i, t, mineId) => `<li class="dq-row ro${b.id === mineId ? ' mine' : ''}"><span class="dq-pos fig">${i + 1}</span><span class="dq-time fig">${clock(t)}</span><span class="dq-who"><b>${esc(b.name)}</b><small>${kindTag(b)} <span>${b.min} min</span>${b.topic ? `<span class="dq-topic">${esc(b.topic)}</span>` : ''}</small></span></li>`;
+  const plainRow = (b, i, mineId) => `<li class="dq-row ro${b.id === mineId ? ' mine' : ''}"><span class="dq-pos fig">${i + 1}</span><span class="dq-who"><b>${esc(b.name)}</b><small>${kindTag(b)}${b.topic ? `<span class="dq-topic">${esc(b.topic)}</span>` : ''}</small></span></li>`;
 
   function managerView() {
-    const m = current(), ts = times(m), n = m.q.length;
+    const m = current(), n = m.q.length;
     const count = k => m.q.filter(b => b.kind === k).length;
     const acts = `<button class="btn ink" data-act="drc-new">${ic('plus')}Announce a DRC</button><button class="btn" data-act="drc-export">${ic('upload')}Export</button>`;
     const edit = manager();
-    return `${head('DRC running order', edit ? 'Each booking joins the queue in the order it came in. Drag a row, or pick its slot, to set who presents when. Times follow.' : 'The DRR and the district sergeants set the order. This is where it stands.', edit ? acts : (U.can.exportAll() ? `<button class="btn" data-act="drc-export">${ic('upload')}Export</button>` : ''))}
+    return `${head('DRC running order', edit ? 'Each booking joins the queue in the order it came in. Drag a row, or pick its slot number, to set the order.' : 'The DRR and the district sergeants set the order. This is where it stands.', edit ? acts : (U.can.exportAll() ? `<button class="btn" data-act="drc-export">${ic('upload')}Export</button>` : ''))}
     ${meetChips(m)}
     <section class="card dq-meet"><div class="card-h"><h2>${esc(longDay(m.date))}</h2>${statusPill(m)}</div>
-      <p class="note">${esc(m.venue)}. Starts ${clock(toMin(m.start))}, runs to about ${clock(endOf(m))}.</p>
+      <p class="note">${esc(m.venue)}. Starts ${clock(toMin(m.start))}.</p>
       ${edit ? `<div class="row-btns">
         ${!m.published || m.changed ? `<button class="btn ink" data-act="drc-publish" data-m="${m.id}" ${n ? '' : 'disabled'}>${ic('send')}${m.published ? 'Publish changes' : 'Publish the order'}</button>` : ''}
         <button class="btn" data-act="drc-open" data-m="${m.id}">${ic(m.status === 'open' ? 'lock' : 'circle')}${m.status === 'open' ? 'Close booking' : 'Reopen booking'}</button>
         <button class="btn" data-act="drc-shuffle" data-m="${m.id}" ${n > 1 ? '' : 'disabled'}>${ic('swap')}Shuffle</button>
         <button class="btn" data-act="drc-edit" data-m="${m.id}">${ic('pen')}Date and time</button></div>` : ''}</section>
     <div class="stats">${U.fig(n, 'Slots booked')}${U.fig(count('Club'), 'Clubs')}${U.fig(count('District officer') + count('Group'), 'Officers and groups')}${U.fig(count('Event team'), 'Event teams')}</div>
-    <section class="card"><div class="card-h"><h2>Running order</h2><span class="muted">${n} slots, ${endOf(m) - toMin(m.start)} min</span></div>
-      ${n ? `<ol class="dq${edit ? '' : ' ro'}" data-m="${m.id}">${m.q.map((b, i) => edit ? managerRow(m, b, i, ts[i]) : plainRow(b, i, ts[i])).join('')}</ol>` : `<div class="empty">${ic('calendar')}<b>No bookings yet</b><span>Clubs, officers and teams book from their own login once the date is announced.</span></div>`}
+    <section class="card"><div class="card-h"><h2>Running order</h2><span class="muted">${n} slots</span></div>
+      ${n ? `<ol class="dq${edit ? '' : ' ro'}" data-m="${m.id}">${m.q.map((b, i) => edit ? managerRow(m, b, i) : plainRow(b, i)).join('')}</ol>` : `<div class="empty">${ic('calendar')}<b>No bookings yet</b><span>Clubs, officers and teams book from their own login once the date is announced.</span></div>`}
     </section>`;
   }
 
   function bookerView() {
     const me = booker(), ms = meetings();
     const card = m => {
-      const i = me ? m.q.findIndex(b => b.k === me.k) : -1, ts = times(m), mine = m.q[i];
+      const i = me ? m.q.findIndex(b => b.k === me.k) : -1, mine = m.q[i];
       let body;
       if (mine) {
-        body = `<div class="callout ok">${ic('check')}<p>${m.published && !m.changed ? `Final order: you present <b>slot ${i + 1} of ${m.q.length}</b>, at <b>${clock(ts[i])}</b> for ${mine.min} minutes.` : `You are <b>number ${i + 1} of ${m.q.length}</b> so far, around <b>${clock(ts[i])}</b>. The sergeant may still move slots before publishing the order.`}</p></div>
+        body = `<div class="callout ok">${ic('check')}<p>${m.published && !m.changed ? `Final order: you present in <b>slot ${i + 1} of ${m.q.length}</b>.` : `You are <b>slot ${i + 1} of ${m.q.length}</b> so far. The sergeant may still move slots before publishing the order.`}</p></div>
           ${m.status === 'open' ? `<div class="row-btns"><button class="btn sm" data-act="drc-cancel" data-m="${m.id}">Cancel my booking</button></div>` : ''}`;
       } else if (!me) {
         body = `<p class="note">Your president or secretary books the club's slot.</p>`;
       } else if (m.status === 'open') {
         body = `<form class="form dq-book" data-form="drc-book" data-m="${m.id}">
           <label class="field" for="dqT${m.id}"><span>What you will present, optional</span><input id="dqT${m.id}" name="topic" maxlength="80" placeholder="${me.kind === 'Club' ? 'Our flagship project this month' : 'An update for every club'}"></label>
-          <div class="form-act"><button class="btn ink" type="submit">${ic('plus')}Book a slot for ${esc(me.name)}</button><span class="muted">You join the queue at number ${m.q.length + 1}. No time to pick.</span></div></form>`;
+          <div class="form-act"><button class="btn ink" type="submit">${ic('plus')}Book a slot for ${esc(me.name)}</button><span class="muted">You join the queue as slot ${m.q.length + 1}.</span></div></form>`;
       } else body = `<div class="callout">${ic('lock')}<p>Booking for this DRC is closed. Ask the District Sergeant-at-Arms if you still need a slot.</p></div>`;
       const showOrder = m.published && !m.changed;
       return `<section class="card dq-meet"><div class="card-h"><h2>DRC, ${esc(longDay(m.date))}</h2>${statusPill(m)}</div>
         <p class="note">${esc(m.venue)}. Starts ${clock(toMin(m.start))}. ${m.q.length} slots booked.</p>${body}
-        ${showOrder ? `<details class="dq-all"><summary>See the full running order</summary><ol class="dq ro">${m.q.map((b, j) => plainRow(b, j, ts[j], mine && mine.id)).join('')}</ol></details>` : ''}</section>`;
+        ${showOrder ? `<details class="dq-all"><summary>See the full running order</summary><ol class="dq ro">${m.q.map((b, j) => plainRow(b, j, mine && mine.id)).join('')}</ol></details>` : ''}</section>`;
     };
-    return `${head('DRC bookings', 'The DRR and the District Sergeant-at-Arms set each DRC date. Book your slot and you join the running order. They arrange the final order and the times.')}
+    return `${head('DRC bookings', 'The DRR and the District Sergeant-at-Arms set each DRC date. Book your slot and you join the running order. They arrange the final order.')}
       ${ms.length ? ms.map(card).join('') : `<section class="card"><div class="empty">${ic('calendar')}<b>No DRC announced yet</b><span>You will get a notification when the next date is set.</span></div></section>`}`;
   }
 
@@ -146,8 +140,7 @@
   A['drc-up'] = el => reorder(byId(el.dataset.m), +el.dataset.i, +el.dataset.i - 1);
   A['drc-down'] = el => reorder(byId(el.dataset.m), +el.dataset.i, +el.dataset.i + 1);
   U.extraInputs['drc-to'] = el => reorder(byId(el.dataset.m), +el.dataset.i, +el.value);
-  U.extraInputs['drc-min'] = el => { const m = byId(el.dataset.m); m.q[+el.dataset.i].min = +el.value; touch(m); U.rerender(); };
-  A['drc-shuffle'] = el => {
+    A['drc-shuffle'] = el => {
     const m = byId(el.dataset.m), Fl = window.MO && window.MO.Flip, st = Fl && !U.calm() ? Fl.getState('.dq-row') : null;
     for (let i = m.q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [m.q[i], m.q[j]] = [m.q[j], m.q[i]]; }
     DF.moved = null; touch(m); U.rerender();
@@ -158,13 +151,13 @@
   A['drc-rm-yes'] = el => { const m = byId(el.dataset.m); m.q = m.q.filter(b => b.id !== el.dataset.id); touch(m); U.closeSheet(); U.rerender(); U.toast('Removed from the running order', 'info'); };
   A['drc-open'] = el => { const m = byId(el.dataset.m); m.status = m.status === 'open' ? 'closed' : 'open'; save(); U.rerender(); U.toast(m.status === 'open' ? 'Booking is open again' : 'Booking closed. Nobody new can join.', 'info'); };
   A['drc-publish'] = el => {
-    const m = byId(el.dataset.m), ts = times(m);
+    const m = byId(el.dataset.m);
     m.published = true; m.changed = false; m.status = 'closed'; save();
-    const at = k => { const i = m.q.findIndex(b => b.k === k); return i < 0 ? null : `slot ${i + 1}, ${clock(ts[i])}`; };
+    const at = k => { const i = m.q.findIndex(b => b.k === k); return i < 0 ? null : `slot ${i + 1}`; };
     const club = at('c' + cos().id), grp = at('g' + U.MY_GROUP);
-    [['pres', club], ['sec', club], ['grr', grp], ['grs', grp], ['dir', at('d-blood')], ['chair', at('t-ryla')]].forEach(([r, s]) => U.notify(r, `The running order for the DRC on ${day(m.date)} is out.${s ? ' You present at ' + s + '.' : ''}`, 'drc'));
+    [['pres', club], ['sec', club], ['grr', grp], ['grs', grp], ['dir', at('d-blood')], ['chair', at('t-ryla')]].forEach(([r, s]) => U.notify(r, `The running order for the DRC on ${day(m.date)} is out.${s ? ' You present in ' + s + '.' : ''}`, 'drc'));
     U.confetti(...(r => [r.left + r.width / 2, r.top + r.height / 2])(el.getBoundingClientRect()));
-    U.rerender(); U.toast('Published. Everyone who booked can see their time.');
+    U.rerender(); U.toast('Published. Everyone who booked can see their slot.');
   };
   A['drc-cancel'] = el => { const m = byId(el.dataset.m), me = booker(); m.q = m.q.filter(b => b.k !== me.k); touch(m); U.rerender(); U.toast('Booking cancelled', 'info'); };
   A['drc-export'] = () => { U.download('drc-running-order.csv', U.drcRows()); U.toast('Running order downloaded'); };
@@ -172,12 +165,12 @@
     const m = byId(f.dataset.m), me = booker();
     if (!me || m.status !== 'open' || m.q.some(b => b.k === me.k)) return;
     m.seq += 1;
-    m.q.push(Object.assign({}, me, { id: m.id + '-' + m.seq, n: m.seq, min: KIND_MIN[me.kind], topic: (new FormData(f).get('topic') || '').trim() }));
+    m.q.push(Object.assign({}, me, { id: m.id + '-' + m.seq, n: m.seq, topic: (new FormData(f).get('topic') || '').trim() }));
     touch(m);
     MANAGE.forEach(r => U.notify(r, `${me.name} booked a slot at the DRC on ${day(m.date)}. They are number ${m.q.length}.`, 'drc'));
     const btn = f.querySelector('[type=submit]');
     U.confetti(...(r => [r.left + r.width / 2, r.top + r.height / 2])(btn.getBoundingClientRect()));
-    U.rerender(); U.toast(`Booked. You are number ${m.q.length}, around ${clock(times(m)[m.q.length - 1])}.`);
+    U.rerender(); U.toast(`Booked. You are slot ${m.q.length}.`);
   };
 
   // Announce or edit a DRC: the date, the start time and the venue. Bookers are told when a new one opens.

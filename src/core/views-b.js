@@ -54,7 +54,7 @@
     const projs = U.projects(c, 3).concat(U.projects(c, 4));
     const hours = projs.reduce((a, p) => a + p.manHours, 0), ben = projs.reduce((a, p) => a + p.beneficiaries, 0);
     return `<div class="g-band" style="--g:${U.gcolor(g)}"><span>Rotaract Club of ${esc(c.name)}</span><small>Group ${g}, ${c.type.toLowerCase()} club, sponsored by ${esc(c.sponsor || 'a Rotary club')}</small></div>
-    ${head(esc(c.name), `${esc(c.place)}. Chartered ${c.chartered}. ${num(c.members)} members.`, `<button class="btn" data-act="back">${ic('left')}Back</button>${canAdmin() ? `<button class="btn ink" data-act="lifecycle" data-id="${c.id}">Change state</button>` : ''}`)}
+    ${head(esc(c.name), `${esc(c.place)}. Chartered ${c.chartered}. ${num(c.members)} members.`, `${canAdmin() ? `<button class="btn ink" data-act="lifecycle" data-id="${c.id}">Change state</button>` : ''}`)}
     <div class="stats">
       <div class="stat"><span class="st-l">State</span><b class="st-v">${U.pill(st, st === 'Active' ? 'ok' : st === 'Proposed' ? 'neutral' : 'bad')}</b></div>
       ${U.fig(projs.length, 'Projects, Oct and Nov')}
@@ -85,7 +85,7 @@
   /* ---------- groups ---------- */
   U.view('groups', () => {
     const act = U.activeClubs();
-    return `${head('Groups', 'Clubs are split into seven groups. Each has a GRR, a GRS and its own colour for the season.', U.role() === 'drr' ? `<button class="btn" data-go="season">Pick group colours</button>` : '')}
+    return `${head('Groups', 'Clubs are split into seven groups. Each has a GRR, a GRS and its own colour for the season.', U.isLead() ? `<button class="btn" data-go="season">Pick group colours</button>` : '')}
     <div class="grid-cc">
       <div class="g-cards">${D.GROUPS.map(g => {
         const cs = act.filter(c => U.groupOf(c) === g.id);

@@ -17,6 +17,7 @@ export function afterRender(root, opts = {}) {
   if (!root) return;
   const isSheet = root.id === 'sheetBody';
   const races = root.querySelectorAll('[data-race]');
+  if (!isSheet && window.UI.galMarquee) window.UI.galMarquee();
   if (!on()) {
     races.forEach(r => r.style.setProperty('--p', Number(r.dataset.race) * 0.86));
     // With animations off the start page still gets the 3D scene, as one still frame.

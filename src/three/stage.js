@@ -1,19 +1,19 @@
-/* The 3D start page: a cranberry-pink Rotaract wheel rising as the sun over Chennai, seen from the sea.
-   Loaded on demand, so the rest of the site never waits for it. One renderer for the whole visit: the loader
-   plays the intro on it, then the canvas moves into the start page and carries on.
+/* The 3D start page: a Rotaract pink metal wheel floating in a white studio, with thin rings turning around it
+   and pearls hanging at different depths. Loaded on demand, so the rest of the site never waits for it. One
+   renderer for the whole visit: the loader plays the intro on it, then the canvas moves into the start page.
 
    Everything is drawn from code, with no textures, models or HDR files to download. Cost is kept low on purpose:
-   one sky quad, one sea plane, a handful of flat silhouettes, a three-part wheel, and two point clouds. No
-   post-processing. Pixel ratio adapts to the measured frame time, and the loop stops when nobody can see it. */
+   one backdrop quad, one floor plane, a three-part wheel, three rings, two instanced pearl sets and two point
+   clouds. No post-processing. Pixel ratio adapts to the measured frame time, and the loop stops when nobody can see it. */
 import {
-  WebGLRenderer, Scene, PerspectiveCamera, Mesh, Group, Points, PlaneGeometry, BoxGeometry, SphereGeometry,
-  ShapeGeometry, ExtrudeGeometry, BufferGeometry, BufferAttribute, Shape, Path, ShaderMaterial, MeshBasicMaterial,
-  MeshStandardMaterial, MeshPhysicalMaterial, DirectionalLight, PMREMGenerator, Color, Fog, Vector3,
-  AdditiveBlending, BackSide, SRGBColorSpace, ACESFilmicToneMapping
+  WebGLRenderer, Scene, PerspectiveCamera, Mesh, Group, Points, PlaneGeometry, SphereGeometry, TorusGeometry,
+  ExtrudeGeometry, BufferGeometry, BufferAttribute, Shape, Path, ShaderMaterial, MeshBasicMaterial, InstancedMesh,
+  MeshStandardMaterial, MeshPhysicalMaterial, DirectionalLight, PMREMGenerator, Color, Fog, Vector3, Object3D,
+  BackSide, SRGBColorSpace, NeutralToneMapping
 } from 'three';
 
 const TAU = Math.PI * 2;
-const SEA = -1.25;                          // sea level
+const FLOOR = -1.25;                        // the studio floor
 const SUN = new Vector3(0, 1.75, -9);       // the wheel's centre
 const SUN_R = 1.9;                          // the wheel's outer radius
 
@@ -74,57 +74,6 @@ function wheelTargets(n, rnd) {
   return pts;
 }
 
-/* ---------- Chennai skyline, flat silhouettes at real depths so the camera's motion gives true parallax ---------- */
-const poly = pts => { const s = new Shape(); pts.forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y))); s.closePath(); return s; };
-const rect = (x0, y0, x1, y1) => poly([[x0, y0], [x1, y0], [x1, y1], [x0, y1]]);
-const dome = (cx, y, r, n = 10) => poly([...Array(n + 1)].map((_, i) => [cx + Math.cos(Math.PI * i / n) * r, y + Math.sin(Math.PI * i / n) * r * 1.15]));
-const spire = (cx, y, w, h) => poly([[cx - w, y], [cx + w, y], [cx, y + h]]);
-
-function lighthouse() {
-  return [poly([[-0.17, 0], [0.17, 0], [0.11, 1.9], [-0.11, 1.9]]), rect(-0.21, 1.9, 0.21, 1.97), rect(-0.09, 1.97, 0.09, 2.17), dome(0, 2.17, 0.1, 8), spire(0, 2.27, 0.012, 0.12)];
-}
-function gopuram() {
-  const s = [rect(-0.55, 0, 0.55, 0.36)];
-  let w = 0.5, y = 0.36;
-  for (let t = 0; t < 6; t++) {
-    const hgt = 0.2 - t * 0.012;
-    s.push(poly([[-w, y], [w, y], [w - 0.035, y + hgt], [-w + 0.035, y + hgt]]));
-    s.push(rect(-w - 0.03, y + hgt * 0.35, -w + 0.06, y + hgt * 0.8), rect(w - 0.06, y + hgt * 0.35, w + 0.03, y + hgt * 0.8));
-    y += hgt; w -= 0.065;
-  }
-  s.push(poly([...Array(13)].map((_, i) => { const a = Math.PI * i / 12; return [Math.cos(a) * (w + 0.03), y + Math.sin(a) * 0.17]; })));
-  for (let i = -2; i <= 2; i++) s.push(spire(i * (w / 2.4), y + 0.13 - Math.abs(i) * 0.03, 0.018, 0.12));
-  return s;
-}
-function centralStation() {
-  const s = [rect(-1.15, 0, 1.15, 0.52)];
-  for (let i = -1.1; i <= 1.11; i += 0.1) s.push(rect(i - 0.025, 0.52, i + 0.025, 0.57));
-  s.push(rect(-0.17, 0, 0.17, 1.45), poly([[-0.2, 1.45], [0.2, 1.45], [0, 1.8]]), spire(0, 1.8, 0.01, 0.14));
-  [-0.82, 0.82].forEach(x => s.push(rect(x - 0.1, 0, x + 0.1, 0.92), poly([[x - 0.12, 0.92], [x + 0.12, 0.92], [x, 1.12]])));
-  [-1.12, 1.12].forEach(x => s.push(rect(x - 0.07, 0, x + 0.07, 0.68), dome(x, 0.68, 0.075, 8)));
-  return s;
-}
-function palm(h, lean) {
-  const s = [], n = 8;
-  const trunk = [];
-  for (let i = 0; i <= n; i++) { const t = i / n; trunk.push([lean * t * t - 0.025 * (1 - t * 0.4), t * h]); }
-  for (let i = n; i >= 0; i--) { const t = i / n; trunk.push([lean * t * t + 0.025 * (1 - t * 0.4), t * h]); }
-  s.push(poly(trunk));
-  // Fronds: long curved leaves that arch up and droop at the tips.
-  const tx = lean, ty = h;
-  for (let k = 0; k < 8; k++) {
-    const a = Math.PI * (0.04 + k * 0.13), len = 0.36 + (k % 3) * 0.06, dx = Math.cos(a), dy = Math.sin(a);
-    const ex = tx + dx * len, ey = ty + dy * len * 0.35 - 0.16 - Math.abs(dx) * 0.06;
-    const cx = tx + dx * len * 0.55, cy = ty + 0.1 + dy * 0.12;
-    const leaf = new Shape(); leaf.moveTo(tx, ty);
-    leaf.quadraticCurveTo(cx - dy * 0.05, cy + 0.05, ex, ey);
-    leaf.quadraticCurveTo(cx + dy * 0.02, cy - 0.04, tx, ty - 0.02);
-    s.push(leaf);
-  }
-  s.push(new Shape().absarc(tx, ty - 0.02, 0.045, 0, TAU));
-  return s;
-}
-
 /* ---------- the stage ---------- */
 export function createStage({ tier, colors, calm }) {
   const rnd = (s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; })(3233);
@@ -138,37 +87,40 @@ export function createStage({ tier, colors, calm }) {
   const renderer = new WebGLRenderer({ antialias: tier >= 2 && dpr < 2, alpha: false, powerPreference: 'high-performance', stencil: false });
   renderer.setPixelRatio(pr);
   renderer.outputColorSpace = SRGBColorSpace;
-  renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  // Neutral tone mapping keeps the studio white white, where ACES would grey it.
+  renderer.toneMapping = NeutralToneMapping;
+  renderer.toneMappingExposure = 1;
   const canvas = renderer.domElement;
   canvas.className = 'stage-canvas';
   canvas.setAttribute('aria-hidden', 'true');
 
   const scene = new Scene();
-  scene.fog = new Fog(C.haze, 7, 24);
+  scene.fog = new Fog(C.edge, 12, 40);
   const camera = new PerspectiveCamera(38, 1, 0.1, 80);
   const LOOK = new Vector3(0, 0.5, -9);
 
-  /* Sky: a full-screen quad drawn first. Gradient, drifting light, and the sun's glow and rays around the wheel. */
+  /* Backdrop: a full-screen quad drawn first. White around the wheel, a blush sweep at the edges, two soft pink lights drifting behind. */
   const sky = new Mesh(new PlaneGeometry(2, 2), new ShaderMaterial({
     depthTest: false, depthWrite: false,
-    uniforms: { uTime: { value: 0 }, uSun: { value: [0.5, 0.7] }, uAsp: { value: 1 }, uIgnite: { value: 0 }, cTop: { value: C.skyTop }, cMid: { value: C.skyMid }, cLow: { value: C.skyLow }, cHor: { value: C.skyHor }, cGlow: { value: C.glow } },
+    uniforms: { uTime: { value: 0 }, uSun: { value: [0.5, 0.65] }, uAsp: { value: 1 }, uIgnite: { value: 0 }, cBg: { value: C.bg }, cEdge: { value: C.edge }, cBlob: { value: C.blob }, cBlob2: { value: C.blob2 } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.9999, 1.0); }',
     fragmentShader: /* glsl */`
-      uniform float uTime, uAsp, uIgnite; uniform vec2 uSun; uniform vec3 cTop, cMid, cLow, cHor, cGlow; varying vec2 vUv;
+      uniform float uTime, uAsp, uIgnite; uniform vec2 uSun; uniform vec3 cBg, cEdge, cBlob, cBlob2; varying vec2 vUv;
       ${NOISE}
       void main() {
-        float y = vUv.y;
-        vec3 col = mix(cHor, cLow, smoothstep(0.18, 0.42, y));
-        col = mix(col, cMid, smoothstep(0.38, 0.7, y));
-        col = mix(col, cTop, smoothstep(0.68, 1.05, y));
-        vec2 p = vec2(vUv.x * uAsp, y), t = vec2(uTime * 0.03, uTime * 0.02);
-        float drift = noise(p * 1.6 + t) * 0.6 + noise(p * 3.4 - t * 1.7) * 0.4;
-        col = mix(col, cLow, smoothstep(0.45, 0.85, drift) * 0.28 * smoothstep(0.3, 0.9, y));
-        vec2 d = (vUv - uSun) * vec2(uAsp, 1.0); float r = length(d), ang = atan(d.y, d.x);
-        float halo = 0.75 * exp(-r * 3.4) + 0.55 * exp(-r * 11.0);
-        float rays = pow(0.5 + 0.5 * sin(ang * 16.0 + uTime * 0.12), 8.0) * 0.6 + pow(0.5 + 0.5 * sin(ang * 7.0 - uTime * 0.08 + 1.3), 5.0) * 0.4;
-        col += cGlow * (halo + rays * 0.32 * exp(-r * 2.4) * smoothstep(0.06, 0.22, r)) * (0.85 + uIgnite * 0.6);
+        vec2 d = (vUv - uSun) * vec2(uAsp, 1.0);
+        float r = length(d);
+        vec3 col = mix(cBg, cEdge, smoothstep(0.18, 1.15, r));
+        // Two large, slow, soft lights: a warm pink and a cooler pink, never sharper than a blur.
+        vec2 p = vec2(vUv.x * uAsp, vUv.y);
+        vec2 a = vec2(0.22 * uAsp + sin(uTime * 0.11) * 0.12 * uAsp, 0.78 + cos(uTime * 0.09) * 0.08);
+        vec2 b = vec2(0.82 * uAsp + cos(uTime * 0.08) * 0.1 * uAsp, 0.28 + sin(uTime * 0.12) * 0.08);
+        float n = noise(p * 2.2 + uTime * 0.04) * 0.25;
+        col = mix(col, cBlob, (exp(-pow(length(p - a) * 2.1, 2.0)) * 0.42 + n * 0.08));
+        col = mix(col, cBlob2, exp(-pow(length(p - b) * 2.4, 2.0)) * 0.55);
+        // A soft white glow behind the wheel that flares as it lands.
+        col = mix(col, cBg, exp(-r * 4.5) * (0.65 + uIgnite * 0.35));
+        col = mix(col, cBlob, exp(-pow(r * 5.0, 2.0)) * uIgnite * 0.35);
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
         ${DITHER}
@@ -177,109 +129,80 @@ export function createStage({ tier, colors, calm }) {
   sky.frustumCulled = false; sky.renderOrder = -10;
   scene.add(sky);
 
-  /* Sea: dark cranberry close to the camera, pale near the shore, a glittering column of reflected light under the sun. */
-  const sea = new Mesh(new PlaneGeometry(70, 40, 1, 1), new ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uIgnite: { value: 0 }, cDeep: { value: C.seaDeep }, cFar: { value: C.seaFar }, cGlow: { value: C.glow } },
+  /* Floor: a pale blush surface that melts into the backdrop, with a soft contact shadow under the wheel. */
+  const floor = new Mesh(new PlaneGeometry(60, 40, 1, 1), new ShaderMaterial({
+    transparent: true, depthWrite: false, fog: false,
+    uniforms: { uFoot: { value: [0, -9] }, uLift: { value: 0 }, uOn: { value: 0 }, cFloor: { value: C.floor }, cShadow: { value: C.shadow } },
     vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
     fragmentShader: /* glsl */`
-      uniform float uTime, uIgnite; uniform vec3 cDeep, cFar, cGlow; varying vec3 vW;
-      ${NOISE}
+      uniform vec2 uFoot; uniform float uLift, uOn; uniform vec3 cFloor, cShadow; varying vec3 vW;
       void main() {
-        float far = smoothstep(4.0, -8.0, vW.z);
-        vec3 col = mix(cDeep, cFar, far);
-        float w = 0.18 + max(0.0, 4.0 - vW.z) * 0.07;
-        float column = exp(-pow(vW.x / w, 2.0));
-        float n = noise(vec2(vW.x * 4.0, vW.z * 9.0 - uTime * 0.7)) * noise(vec2(vW.x * 9.0 + uTime * 0.4, vW.z * 17.0 + uTime * 0.3));
-        float glint = smoothstep(0.42, 0.75, n);
-        col += cGlow * (glint * column * 1.4 + column * 0.18 * far) * (0.8 + uIgnite * 0.4);
-        float swell = noise(vec2(vW.x * 0.9, vW.z * 3.0 + uTime * 0.25));
-        col += cFar * smoothstep(0.62, 0.9, swell) * 0.08 * (1.0 - far);
-        col += cGlow * smoothstep(0.75, 0.95, noise(vec2(vW.x * 6.0 - uTime * 0.2, vW.z * 26.0))) * 0.06;
-        gl_FragColor = vec4(col, 1.0);
+        float fade = smoothstep(-19.0, -10.0, vW.z) * (1.0 - smoothstep(1.0, 6.0, vW.z)) * (1.0 - smoothstep(6.0, 14.0, abs(vW.x)));
+        vec2 q = (vW.xz - uFoot) * vec2(1.0, 2.2);
+        float sh = exp(-dot(q, q) * (0.55 + uLift)) * (0.32 - uLift * 0.6) * uOn;
+        vec3 col = mix(cFloor, cShadow, sh);
+        gl_FragColor = vec4(col, fade * 0.9);
         #include <colorspace_fragment>
-        ${DITHER}
       }`
   }));
-  sea.rotation.x = -Math.PI / 2; sea.position.set(0, SEA, -12);
-  scene.add(sea);
+  floor.rotation.x = -Math.PI / 2; floor.position.set(0, FLOOR, -8);
+  floor.renderOrder = -5;
+  scene.add(floor);
 
-  /* Environment for the wheel's reflections: a white-and-pink studio, rendered once into a prefiltered map. */
+  /* Environment for the reflections: a white studio with a pink bounce from below, rendered once into a prefiltered map. */
   const pmrem = new PMREMGenerator(renderer);
   const envScene = new Scene();
   envScene.add(new Mesh(new SphereGeometry(10, 32, 16), new ShaderMaterial({
     side: BackSide,
     uniforms: { cA: { value: C.envLow }, cB: { value: C.envHigh } },
     vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: 'uniform vec3 cA, cB; varying vec3 vD; void main(){ gl_FragColor = vec4(mix(cA, cB, smoothstep(-0.4, 0.8, vD.y + vD.z * 0.3)), 1.0); }'
+    fragmentShader: 'uniform vec3 cA, cB; varying vec3 vD; void main(){ gl_FragColor = vec4(mix(cA, cB, smoothstep(-0.5, 0.6, vD.y + vD.z * 0.25)), 1.0); }'
   })));
   const box = (w, h, x, y, z, k) => { const m = new Mesh(new PlaneGeometry(w, h), new MeshBasicMaterial({ color: new Color(1, 1, 1).multiplyScalar(k), side: 2 })); m.position.set(x, y, z); m.lookAt(0, 0, 0); envScene.add(m); };
-  box(6, 2.5, -4, 5, 6, 7); box(2, 6, 6, 1, 4, 4); box(9, 0.8, 0, -4, 6, 2.2); box(1.2, 1.2, 3, 3, 7, 9);
+  box(6, 2.5, -4, 5, 6, 6); box(2, 6, 6, 1, 4, 3.5); box(9, 0.8, 0, -4, 6, 1.6); box(1.2, 1.2, 3, 3, 7, 8);
   const envMap = pmrem.fromScene(envScene, 0.035).texture;
   envScene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
   pmrem.dispose();
 
-  /* The wheel: rim and cogs, recessed spokes, a raised hub. Candy-pink metal with a clear coat. */
+  /* The wheel: rim and cogs, recessed spokes, a raised hub. Rotaract pink metal with a clear coat. */
   const sh = wheelShapes();
   const ext = (shapes, depth, z) => { const g = new ExtrudeGeometry(shapes, { depth, bevelEnabled: true, bevelThickness: 0.035, bevelSize: 0.022, bevelSegments: tier >= 2 ? 4 : 2, curveSegments: tier >= 2 ? 48 : 28 }); g.translate(0, 0, -depth / 2 + z); return g; };
-  const wheelMat = tier >= 2
-    ? new MeshPhysicalMaterial({ color: C.wheel, metalness: 0.8, roughness: 0.2, clearcoat: 1, clearcoatRoughness: 0.06, envMap, envMapIntensity: 1.5, fog: false, transparent: true, opacity: 0 })
-    : new MeshStandardMaterial({ color: C.wheel, metalness: 0.8, roughness: 0.22, envMap, envMapIntensity: 1.6, fog: false, transparent: true, opacity: 0 });
+  const metal = (color, o = {}) => tier >= 2
+    ? new MeshPhysicalMaterial(Object.assign({ color, metalness: 0.8, roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.04, envMap, envMapIntensity: 1.5, transparent: true, opacity: 0 }, o))
+    : new MeshStandardMaterial(Object.assign({ color, metalness: 0.75, roughness: 0.22, envMap, envMapIntensity: 1.45, transparent: true, opacity: 0 }, o));
+  const wheelMat = metal(C.wheel, { fog: false });
   const wheel = new Group();
   [ext(sh.ring, 0.16, 0), ext(sh.spokes, 0.1, -0.015), ext(sh.hub, 0.22, 0.01)].forEach(g => wheel.add(new Mesh(g, wheelMat)));
   wheel.position.copy(SUN); wheel.scale.setScalar(SUN_R);
   scene.add(wheel);
-  const key = new DirectionalLight(0xffffff, 1.6); key.position.set(-3, 5, 6); key.target = wheel; scene.add(key);
+  const key = new DirectionalLight(0xffffff, 1.5); key.position.set(-3, 5, 6); key.target = wheel; scene.add(key);
 
-  /* Skyline: far city blocks with lit windows, then the landmarks, then palms on the near shore. */
-  const silMat = new MeshBasicMaterial({ color: C.sil });
-  const silFar = new MeshBasicMaterial({ color: C.silFar });
-  const winMat = new ShaderMaterial({
-    fog: false,
-    uniforms: { uTime: { value: 0 }, cWall: { value: C.silFar }, cWin: { value: C.window }, cHaze: { value: C.haze } },
-    vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
-    fragmentShader: /* glsl */`
-      uniform float uTime; uniform vec3 cWall, cWin, cHaze; varying vec3 vW;
-      ${NOISE}
-      void main() {
-        vec2 g = vec2(vW.x * 10.0, vW.y * 12.0), cell = floor(g), f = fract(g);
-        float inside = step(0.25, f.x) * step(f.x, 0.75) * step(0.3, f.y) * step(f.y, 0.75);
-        float lit = step(0.64, hash(cell + floor(uTime * 0.05 + hash(cell) * 9.0)));
-        vec3 col = mix(cWall, cWin, inside * lit * 0.9);
-        col = mix(col, cHaze, smoothstep(6.0, 22.0, distance(vW, cameraPosition)) * 0.85);
-        gl_FragColor = vec4(col, 1.0);
-        #include <colorspace_fragment>
-      }`
+  /* Three thin rings turning around the wheel like a gyroscope: one pink, two pearl. */
+  const pearlMat = metal(C.pearl, { metalness: 0.1, roughness: 0.28, envMapIntensity: 1.1 });
+  const ringMat = metal(C.rose, { metalness: 0.85, roughness: 0.16 });
+  const seg = tier >= 2 ? 160 : 96;
+  const rings = [[1.28, 0.014, ringMat, 1.15, 0.2], [1.42, 0.009, pearlMat, -0.4, -0.75], [1.56, 0.006, pearlMat, 0.35, 1.2]].map(([r, tube, mat, rx, ry]) => {
+    const m = new Mesh(new TorusGeometry(r * SUN_R, tube * SUN_R * 1.6, 12, seg), mat);
+    m.position.copy(SUN); m.rotation.set(rx, ry, 0); scene.add(m);
+    return { m, rx, ry, sp: 0.06 + rnd() * 0.08 };
   });
-  const layers = [];
-  const place = (geo, mat, x, z, side) => { const m = new Mesh(geo, mat); m.position.set(x, SEA, z); scene.add(m); layers.push({ m, x, side }); return m; };
-  // Far blocks behind the landmarks
-  [[-6.2, 1.0, 0.7], [-5.3, 1.5, 0.5], [-4.6, 0.9, 0.6], [-3.9, 1.25, 0.45], [-2.9, 0.7, 0.55], [3.0, 0.8, 0.6], [3.7, 1.35, 0.5], [5.2, 1.1, 0.7], [6.0, 1.6, 0.5], [6.8, 0.9, 0.6]]
-    .forEach(([x, h, w], i) => { const g = new BoxGeometry(w, h, 0.4); g.translate(0, h / 2, 0); place(g, winMat, x, -7.5 - (i % 3) * 0.6, Math.sign(x)); });
-  // LIC building, Anna Salai
-  { const g = new BoxGeometry(0.55, 2.3, 0.5); g.translate(0, 1.15, 0); place(g, winMat, 4.5, -6.6, 1); place(new ShapeGeometry([rect(-0.012, 2.3, 0.012, 2.6)]), silFar, 4.5, -6.6, 1); }
-  place(new ShapeGeometry(centralStation(), 6), silMat, 2.75, -5.2, 1);
-  place(new ShapeGeometry(gopuram(), 6), silMat, -2.25, -5.4, -1);
-  const lh = place(new ShapeGeometry(lighthouse(), 6), silMat, -3.75, -4.4, -1);
-  // The clock on Central Station glows.
-  const clock = place(new ShapeGeometry([new Shape().absarc(0, 1.18, 0.085, 0, TAU)], 20), new MeshBasicMaterial({ color: C.window, fog: false }), 2.75, -5.19, 1);
-  // A promenade line along the shore
-  const prom = new Mesh(new BoxGeometry(40, 0.07, 0.5), silMat); prom.position.set(0, SEA + 0.035, -4.2); scene.add(prom);
-  const palms = [[-1.55, -3.4, 0.9, 0.1], [1.6, -3.5, 0.95, -0.12], [-4.9, -3.0, 1.05, 0.15], [-5.6, -3.6, 0.8, -0.08], [4.8, -3.1, 1.1, -0.12], [5.5, -3.7, 0.85, 0.1]]
-    .map(([x, z, h, l]) => place(new ShapeGeometry(palm(h, l), 10), silMat, x, z, Math.sign(x)));
 
-  /* Lighthouse beam: a long soft wedge that turns with the lamp. */
-  const beamGeo = new BufferGeometry();
-  beamGeo.setAttribute('position', new BufferAttribute(new Float32Array([0, 0, 0, 7, 0.35, 0, 7, -0.35, 0]), 3));
-  beamGeo.setAttribute('uv', new BufferAttribute(new Float32Array([0, 0.5, 1, 1, 1, 0]), 2));
-  const beam = new Mesh(beamGeo, new ShaderMaterial({
-    transparent: true, depthWrite: false, blending: AdditiveBlending, side: 2, fog: false,
-    uniforms: { cGlow: { value: C.glow }, uA: { value: 0.5 } },
-    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: 'uniform vec3 cGlow; uniform float uA; varying vec2 vUv; void main(){ float a = (1.0 - vUv.x) * (1.0 - abs(vUv.y - 0.5) * 2.0) * uA; gl_FragColor = vec4(cGlow * a, a); }'
-  }));
-  const beamPivot = new Group(); beamPivot.add(beam); scene.add(beamPivot);
+  /* Pearls floating at different depths, so the camera's motion gives real parallax. One draw call per finish. */
+  const sphere = new SphereGeometry(1, tier >= 2 ? 40 : 24, tier >= 2 ? 24 : 16);
+  const pearls = [];
+  const makeSet = (n, mat) => {
+    const im = new InstancedMesh(sphere, mat, n); im.frustumCulled = false; scene.add(im);
+    for (let i = 0; i < n; i++) {
+      let x, y, z;
+      do { x = (rnd() - 0.5) * 13; y = FLOOR + 0.4 + rnd() * 5.4; z = -14 + rnd() * 10; } while (Math.hypot(x - SUN.x, (y - SUN.y) * 1.1) < SUN_R * 2.05 && z < -6 && z > -12);
+      pearls.push({ im, i, x, y, z, r: 0.05 + Math.pow(rnd(), 2.2) * 0.3, ph: rnd() * TAU, sp: 0.25 + rnd() * 0.35 });
+    }
+    return im;
+  };
+  const sets = [makeSet(tier >= 1 ? 16 : 10, pearlMat), makeSet(tier >= 1 ? 11 : 7, ringMat)];
+  const dummy = new Object3D();
 
-  /* Sparks that gather into the wheel during the intro. */
+  /* Sparks that gather into the wheel during the intro. Normal blending, since added light vanishes on white. */
   const NG = tier >= 2 ? 2600 : tier === 1 ? 1300 : 700;
   const gStart = new Float32Array(NG * 3), gSeed = new Float32Array(NG);
   for (let i = 0; i < NG; i++) {
@@ -291,9 +214,9 @@ export function createStage({ tier, colors, calm }) {
   gGeo.setAttribute('position', new BufferAttribute(wheelTargets(NG, rnd), 3));
   gGeo.setAttribute('aStart', new BufferAttribute(gStart, 3));
   gGeo.setAttribute('aSeed', new BufferAttribute(gSeed, 1));
-  const sparkFrag = /* glsl */`varying float vA; varying vec3 vC; void main(){ vec2 d = gl_PointCoord - 0.5; float a = exp(-dot(d, d) * 22.0) * vA; gl_FragColor = vec4(vC * a, a); }`;
+  const sparkFrag = /* glsl */`varying float vA; varying vec3 vC; void main(){ vec2 d = gl_PointCoord - 0.5; float a = exp(-dot(d, d) * 18.0) * vA; gl_FragColor = vec4(vC, a); }`;
   const gather = new Points(gGeo, new ShaderMaterial({
-    transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false,
+    transparent: true, depthWrite: false, fog: false,
     uniforms: { uP: { value: 0 }, uTime: { value: 0 }, uPR: { value: pr }, uSun: { value: SUN }, c1: { value: C.spark1 }, c2: { value: C.spark2 } },
     vertexShader: /* glsl */`
       attribute vec3 aStart; attribute float aSeed; uniform float uP, uTime, uPR; uniform vec3 uSun, c1, c2; varying float vA; varying vec3 vC;
@@ -303,44 +226,45 @@ export function createStage({ tier, colors, calm }) {
         float ang = (1.0 - e) * (2.2 + aSeed * 2.0);
         vec2 r = p.xy - uSun.xy; p.xy = uSun.xy + mat2(cos(ang), -sin(ang), sin(ang), cos(ang)) * r;
         vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;
-        float tw = 0.65 + 0.35 * sin(uTime * 9.0 + aSeed * 60.0);
-        gl_PointSize = (8.0 + aSeed * 14.0) * (1.0 + (1.0 - e) * 1.2) * tw * uPR / -mv.z;
-        vA = smoothstep(0.0, 0.08, uP) * (1.0 - smoothstep(0.82, 1.0, uP));
-        vC = mix(c1, c2, step(0.55, fract(aSeed * 13.0)));
+        float tw = 0.7 + 0.3 * sin(uTime * 9.0 + aSeed * 60.0);
+        gl_PointSize = (7.0 + aSeed * 11.0) * (1.0 + (1.0 - e) * 1.1) * tw * uPR / -mv.z;
+        vA = smoothstep(0.0, 0.08, uP) * (1.0 - smoothstep(0.82, 1.0, uP)) * 0.9;
+        vC = mix(c1, c2, step(0.6, fract(aSeed * 13.0)));
       }`,
     fragmentShader: sparkFrag
   }));
   gather.frustumCulled = false;
   scene.add(gather);
 
-  /* Embers that keep rising off the water and around the wheel after the intro. */
-  const NE = tier >= 2 ? 900 : tier === 1 ? 420 : 220;
+  /* Pink dust drifting slowly upward after the intro. */
+  const NE = tier >= 2 ? 520 : tier === 1 ? 260 : 140;
   const eBase = new Float32Array(NE * 3);
-  for (let i = 0; i < NE; i++) { eBase[i * 3] = (rnd() - 0.5) * 12; eBase[i * 3 + 1] = rnd(); eBase[i * 3 + 2] = -3 - rnd() * 8; }
+  for (let i = 0; i < NE; i++) { eBase[i * 3] = (rnd() - 0.5) * 14; eBase[i * 3 + 1] = rnd(); eBase[i * 3 + 2] = -3 - rnd() * 10; }
   const eGeo = new BufferGeometry(); eGeo.setAttribute('position', new BufferAttribute(eBase, 3));
-  const embers = new Points(eGeo, new ShaderMaterial({
-    transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false,
+  const dust = new Points(eGeo, new ShaderMaterial({
+    transparent: true, depthWrite: false, fog: false,
     uniforms: { uTime: { value: 0 }, uPR: { value: pr }, uOn: { value: 0 }, c1: { value: C.spark1 }, c2: { value: C.spark2 } },
     vertexShader: /* glsl */`
       uniform float uTime, uPR, uOn; uniform vec3 c1, c2; varying float vA; varying vec3 vC;
       void main() {
-        float s = position.y, H = 5.5, y = mod(uTime * (0.12 + s * 0.25) + s * H, H);
-        vec3 p = vec3(position.x + sin(uTime * 0.6 + s * 30.0) * 0.25, ${SEA.toFixed(2)} + y, position.z);
+        float s = position.y, H = 6.5, y = mod(uTime * (0.05 + s * 0.1) + s * H, H);
+        vec3 p = vec3(position.x + sin(uTime * 0.4 + s * 30.0) * 0.3, ${FLOOR.toFixed(2)} + y, position.z);
         vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;
-        gl_PointSize = (5.0 + s * 9.0) * uPR / -mv.z * (0.7 + 0.3 * sin(uTime * 5.0 + s * 40.0));
-        vA = sin(3.14159 * y / H) * uOn * 0.85;
-        vC = mix(c1, c2, step(0.5, fract(s * 17.0)));
+        gl_PointSize = (4.0 + s * 7.0) * uPR / -mv.z;
+        vA = sin(3.14159 * y / H) * uOn * 0.55;
+        vC = mix(c1, c2, step(0.4, fract(s * 17.0)));
       }`,
     fragmentShader: sparkFrag
   }));
-  embers.frustumCulled = false;
-  scene.add(embers);
+  dust.frustumCulled = false;
+  scene.add(dust);
 
   /* ---------- layout, motion and the loop ---------- */
   let host = null, w = 1, h = 1, running = false, visible = true, io = null, ro = null;
-  let t0 = performance.now(), introAt = -1, scroll = 0, introDone = false;
+  let t0 = performance.now(), introAt = -1, scroll = 0, introDone = false, spread = 1;
   const ptr = { x: 0, y: 0, tx: 0, ty: 0 };
   const ndc = new Vector3();
+  const fadeIn = [wheelMat, pearlMat, ringMat];
 
   function layout() {
     if (!host) return;
@@ -348,14 +272,13 @@ export function createStage({ tier, colors, calm }) {
     w = Math.max(1, Math.round(r.width)); h = Math.max(1, Math.round(r.height));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    // Portrait screens: widen the view so the whole wheel and both shores stay in frame.
+    // Portrait screens: widen the view so the whole wheel and its rings stay in frame.
     camera.fov = camera.aspect < 0.75 ? 58 : camera.aspect < 1.2 ? 48 : 40;
-    LOOK.y = camera.aspect < 0.75 ? -0.35 : camera.aspect < 1.2 ? 0.1 : 0.5;
+    LOOK.y = camera.aspect < 0.75 ? -0.85 : camera.aspect < 1.2 ? 0.1 : 0.5;
     camera.updateProjectionMatrix();
     sky.material.uniforms.uAsp.value = camera.aspect;
-    // Pull the landmarks in towards the centre on narrow screens, so they stay visible.
-    const k = Math.min(1, Math.max(0.42, camera.aspect / 1.55));
-    layers.forEach(l => { l.m.position.x = l.x * k; });
+    // Pull the pearls in towards the centre on narrow screens, so they stay visible.
+    spread = Math.min(1, Math.max(0.45, camera.aspect / 1.55));
     if (!running) frame(performance.now());
   }
 
@@ -364,33 +287,44 @@ export function createStage({ tier, colors, calm }) {
     let p = 1;
     if (introAt >= 0) { p = Math.min(1, (now - introAt) / 2400); if (p >= 1 && !introDone) { introDone = true; gather.visible = false; } }
     const e = 1 - Math.pow(1 - p, 3);
-    // The wheel fades in as the last sparks land, then starts turning.
-    wheelMat.opacity = Math.min(1, Math.max(0, (p - 0.5) / 0.35));
-    if (wheelMat.opacity >= 1 && wheelMat.transparent) { wheelMat.transparent = false; wheelMat.needsUpdate = true; }
+    // The wheel, rings and pearls fade in as the last sparks land, then the wheel starts turning.
+    const op = Math.min(1, Math.max(0, (p - 0.5) / 0.35));
+    fadeIn.forEach(m => { m.opacity = op; if (op >= 1 && m.transparent) { m.transparent = false; m.needsUpdate = true; } });
     const ignite = Math.max(0, 1 - Math.abs(p - 0.86) / 0.14);
     const spinT = introDone ? t : 0;
+    const bob = Math.sin(t * 0.7) * 0.09 * op;
+    wheel.position.y = SUN.y + bob;
     wheel.rotation.z = -spinT * 0.12 - scroll * 1.6;
     ptr.x += (ptr.tx - ptr.x) * 0.05; ptr.y += (ptr.ty - ptr.y) * 0.05;
-    wheel.rotation.y = ptr.x * 0.22 + Math.sin(t * 0.4) * 0.05;
-    wheel.rotation.x = -ptr.y * 0.15 + Math.cos(t * 0.33) * 0.04;
+    wheel.rotation.y = ptr.x * 0.22 + Math.sin(t * 0.4) * 0.06;
+    wheel.rotation.x = -ptr.y * 0.15 + Math.cos(t * 0.33) * 0.05;
     wheel.scale.setScalar(SUN_R * (0.9 + 0.1 * e));
+    rings.forEach((g, i) => {
+      g.m.position.y = SUN.y + bob;
+      g.m.rotation.x = g.rx + Math.sin(t * g.sp + i) * 0.25 + scroll * 0.6;
+      g.m.rotation.y = g.ry + t * g.sp * (i % 2 ? -1 : 1);
+      g.m.scale.setScalar(0.8 + 0.2 * e);
+    });
+    sets.forEach(im => {
+      pearls.forEach(q => {
+        if (q.im !== im) return;
+        dummy.position.set(q.x * spread + Math.cos(t * q.sp * 0.6 + q.ph) * 0.12, q.y + Math.sin(t * q.sp + q.ph) * 0.18 - scroll * 0.8 * (q.z + 15) / 10, q.z);
+        dummy.scale.setScalar(q.r * (0.3 + 0.7 * e));
+        dummy.updateMatrix(); im.setMatrixAt(q.i, dummy.matrix);
+      });
+      im.instanceMatrix.needsUpdate = true;
+    });
     // Camera: eases in during the intro, follows the pointer a little, sinks as the page scrolls.
     camera.position.set(ptr.x * 0.55, 0.35 + ptr.y * 0.2 - scroll * 0.9, 6.2 + (1 - e) * 3.2);
     camera.lookAt(LOOK.x, LOOK.y - scroll * 0.5, LOOK.z);
-    // Lighthouse lamp turns; palms sway.
-    beamPivot.position.set(lh.position.x, SEA + 2.07, lh.position.z);
-    beamPivot.rotation.y = t * 0.9;
-    beam.material.uniforms.uA.value = 0.32 + 0.25 * Math.max(0, Math.cos(t * 0.9));
-    palms.forEach((m, i) => { m.rotation.z = Math.sin(t * 0.8 + i * 1.7) * 0.025; });
-    clock.material.color.copy(C.window).multiplyScalar(0.85 + 0.15 * Math.sin(t * 2));
     // Uniforms
-    ndc.copy(SUN).project(camera);
+    ndc.copy(wheel.position).project(camera);
     const su = sky.material.uniforms;
     su.uTime.value = t; su.uSun.value = [ndc.x * 0.5 + 0.5, ndc.y * 0.5 + 0.5]; su.uIgnite.value = ignite;
-    sea.material.uniforms.uTime.value = t; sea.material.uniforms.uIgnite.value = ignite;
-    winMat.uniforms.uTime.value = t;
+    const fu = floor.material.uniforms;
+    fu.uFoot.value = [wheel.position.x, SUN.z]; fu.uLift.value = Math.max(0, bob) * 0.6; fu.uOn.value = op;
     gather.material.uniforms.uP.value = p; gather.material.uniforms.uTime.value = t;
-    embers.material.uniforms.uTime.value = t; embers.material.uniforms.uOn.value = Math.max(0, (p - 0.7) / 0.3);
+    dust.material.uniforms.uTime.value = t; dust.material.uniforms.uOn.value = Math.max(0, (p - 0.7) / 0.3);
     renderer.render(scene, camera);
   }
 
@@ -413,7 +347,7 @@ export function createStage({ tier, colors, calm }) {
   function setPR(v) {
     pr = Math.max(minPR, Math.min(maxPR, v));
     renderer.setPixelRatio(pr); renderer.setSize(w, h, false);
-    gather.material.uniforms.uPR.value = pr; embers.material.uniforms.uPR.value = pr;
+    gather.material.uniforms.uPR.value = pr; dust.material.uniforms.uPR.value = pr;
   }
 
   function sync() {
@@ -450,6 +384,11 @@ export function createStage({ tier, colors, calm }) {
     intro() { if (introAt < 0) { introAt = performance.now(); if (calm()) introAt -= 5000; } },
     skip() { if (introAt >= 0) introAt = performance.now() - 5000; },
     setScroll(v) { scroll = v; if (!running && host) frame(performance.now()); },
+    recolor(colors) {
+      Object.entries(colors).forEach(([k, v]) => { if (C[k]) C[k].setRGB(v[0], v[1], v[2], SRGBColorSpace); });
+      wheelMat.color.copy(C.wheel); pearlMat.color.copy(C.pearl); ringMat.color.copy(C.rose); scene.fog.color.copy(C.edge);
+      if (!running && host) frame(performance.now());
+    },
     motion() { sync(); }
   };
 }

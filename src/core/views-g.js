@@ -11,7 +11,7 @@
     const r = U.role(), club = U.myClub(), g = D.GROUPS[U.MY_GROUP - 1];
     if (r === 'grr') return { name: g.grr, line: `GRR, Group ${g.id}`, id: 'R3233' + String(900 + g.id).padStart(3, '0'), points: 410 };
     if (r === 'grs') return { name: g.grs, line: `GRS, Group ${g.id}`, id: 'R3233' + String(910 + g.id).padStart(3, '0'), points: 380 };
-    if (['drr', 'drs', 'dt', 'gco', 'dsgt', 'adsgt', 'dir', 'chair'].includes(r)) { const t = { adsgt: 'Associate Sergeant-at-Arms', drr: 'District Rotaract Representative', drs: 'District Rotaract Secretary', dt: 'District Treasurer', gco: 'Group Coordinator', dsgt: 'Chief Sergeant-at-Arms', dir: 'Chairperson, Blood Donation', chair: 'RYLA Chairman' }[r]; const d = D.designations.find(x => x.title === t); return { name: d ? d.holder : 'District official', line: t, id: 'R3233' + String(800 + (d ? d.id : 0)).padStart(3, '0'), points: 520 }; }
+    if (['drr', 'drs', 'adrr', 'adrs', 'dt', 'gco', 'dsgt', 'adsgt', 'dir', 'chair'].includes(r)) { const t = { adrr: 'Associate DRR', adrs: 'Associate DRS', adsgt: 'Associate Sergeant-at-Arms', drr: 'District Rotaract Representative', drs: 'District Rotaract Secretary', dt: 'District Treasurer', gco: 'Group Coordinator', dsgt: 'Chief Sergeant-at-Arms', dir: 'Chairperson, Blood Donation', chair: 'RYLA Chairman' }[r]; const d = D.designations.find(x => x.title === t); return { name: d ? d.holder : 'District official', line: t, id: 'R3233' + String(800 + (d ? d.id : 0)).padStart(3, '0'), points: 520 }; }
     const m = D.memberOf(club, 7 % club.members);
     return { name: 'Kayal S.', line: `${U.R().label}, ${club.name}`, id: m.id, points: 170 };
   };

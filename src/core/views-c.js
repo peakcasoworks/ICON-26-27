@@ -77,14 +77,14 @@
     const c = U.club(arg) || U.myClub(), mi = 3, r = U.report(c, mi), rl = U.role();
     if (!U.canSeeClub(c)) return `${head('October report', 'Not part of your login.')}<section class="card"><div class="empty">${ic('lock')}<b>This report is outside your ${U.level() === 'group' ? 'group' : 'club'}</b><button class="btn sm" data-go="home">Back to home</button></div></section>`;
     const ps = U.projects(c, mi);
-    const canAct = (['grr', 'grs', 'gco'].includes(rl) && r.status === 'grs') || (rl === 'drs' && r.status === 'drs') || (rl === 'drr' && ['grs', 'drs'].includes(r.status));
+    const canAct = (['grr', 'grs', 'gco'].includes(rl) && r.status === 'grs') || (U.isLead() && ['grs', 'drs'].includes(r.status));
     const hist = (r.hist || []);
-    return `${head(`October report, ${esc(c.name)}`, `Group ${U.groupOf(c)}. ${r.late ? 'Filed after 5 November, so it earns reduced points.' : 'Filed on time.'}`, `<button class="btn" data-act="back">${ic('left')}Back</button>`)}
+    return `${head(`October report, ${esc(c.name)}`, `Group ${U.groupOf(c)}. ${r.late ? 'Filed after 5 November, so it earns reduced points.' : 'Filed on time.'}`, '')}
     <section class="card">
       <div class="card-h"><h2>Where it is</h2>${U.rpill(r.status)}</div>
       ${U.tracker(r.status)}
       ${r.comment ? `<p class="callout warn">${ic('alert')}Returned with a note: ${esc(r.comment)}</p>` : ''}
-      ${canAct ? `<div class="decide"><button class="btn ink" data-act="accept" data-id="${c.id}">${ic('check')}${r.status === 'grs' && rl !== 'drr' ? 'Checked, send to DRS' : 'Accept report'}</button><button class="btn" data-act="return" data-id="${c.id}">Return with a note</button></div>` : ''}
+      ${canAct ? `<div class="decide"><button class="btn ink" data-act="accept" data-id="${c.id}">${ic('check')}${r.status === 'grs' && !U.isLead() ? 'Checked, send to DRS' : 'Accept report'}</button><button class="btn" data-act="return" data-id="${c.id}">Return with a note</button></div>` : ''}
     </section>
     <div class="grid-2">
       <section class="card">
@@ -135,7 +135,7 @@
   const stepper = (k, label, v, step, unit) => `<div class="stepper"><span class="st-lbl">${label}</span><div class="st-ctl"><button class="stp" data-act="step" data-k="${k}" data-d="-${step}" aria-label="Fewer ${label.toLowerCase()}">${ic('minus')}</button><output class="fig" id="out-${k}">${v}</output><button class="stp" data-act="step" data-k="${k}" data-d="${step}" aria-label="More ${label.toLowerCase()}">${ic('plus')}</button></div>${unit ? `<small>${unit}</small>` : ''}</div>`;
   U.view('log', () => {
     const chips = (k, opts, multi) => opts.map(o => { const on = multi ? LF[k].includes(o) : LF[k] === o; return `<button class="chip${on ? ' on' : ''}" data-act="lp-chip" data-k="${k}" data-v="${esc(o)}" data-multi="${multi ? 1 : ''}" aria-pressed="${on}">${esc(o)}</button>`; }).join('');
-    return `${head('Log a project', 'About a minute. Do it the day the project happens and your monthly report fills itself.', `<button class="btn" data-act="back">${ic('left')}Back</button>`)}
+    return `${head('Log a project', 'About a minute. Do it the day the project happens and your monthly report fills itself.', '')}
     <div class="grid-log">
       <form class="card form" id="logForm" data-form="log">
         <label class="field" for="lpName"><span>Project name</span><input id="lpName" required placeholder="Notebook drive at Chromepet school" data-on="lp-text"></label>

@@ -21,11 +21,11 @@
   }).join('')}</div>`;
 
   /* ---------- role picker ---------- */
-  const ORDER = [['District', ['drr', 'drs', 'dt', 'gco', 'dsgt', 'adsgt']], ['Group and portfolio', ['grr', 'grs', 'dir', 'chair']], ['Club', ['pres', 'vp', 'sec', 'jsec', 'trs', 'mem']]];
+  const ORDER = [['District', ['drr', 'drs', 'adrr', 'adrs', 'dt', 'gco', 'dsgt', 'adsgt']], ['Group and portfolio', ['grr', 'grs', 'dir', 'chair']], ['Club', ['pres', 'vp', 'sec', 'jsec', 'trs', 'mem']]];
   const ROLE_NOTE = {
-    drr: 'Command centre, approvals, season setup', drs: 'Review every monthly report', dt: 'Dues, event fees, payment checks',
+    drr: 'Command centre, approvals, season setup', drs: 'Same powers as the DRR, and every monthly report', adrr: 'See everything the DRR sees, read only', adrs: 'Follow reports with the DRS, read only', dt: 'Dues, event fees, payment checks',
     grr: 'Chase and check the clubs of your own group', dir: 'Run a district initiative', chair: 'Committees and tasks for RYLA',
-    gco: 'Every GRR and GRS, club moves, seats', grs: 'Check your own group\'s reports with the GRR',
+    gco: 'Every GRR and GRS, and club moves', grs: 'Check your own group\'s reports with the GRR',
     pres: 'Send reports, add members, book the DRR visit', vp: 'See reports, roster and events', sec: 'Log projects, send the report, keep the roster', jsec: 'Log projects and help send the report',
     trs: 'Pay dues and event fees in one go', dsgt: 'Scan every member in at the big events and each DRC', adsgt: 'Scan with the District Sergeant at the big events and each DRC', mem: 'Pass, points, certificates'
   };
@@ -52,8 +52,8 @@
   /* ---------- home dispatcher ---------- */
   U.view('home', () => {
     const r = U.role();
-    if (r === 'drr') return drrHome();
-    if (r === 'drs') return U.views_reports(true);
+    if (r === 'drr' || r === 'adrr') return drrHome();
+    if (r === 'drs' || r === 'adrs') return U.views_reports(true);
     if (r === 'dt') return U.views_finance();
     if (r === 'gco') return U.views_gco();
     if (r === 'grr' || r === 'grs') return groupHome(U.MY_GROUP, true);
@@ -91,7 +91,7 @@
       [ic('rupee'), `${waitingPay} payments are with the district treasurer`, 'finance', 'Open finance'],
       [ic('building'), `${proposed || 2} clubs waiting for charter approval`, 'clubs', 'Review']
     ];
-    return `${head('Command centre', 'District 3233 on Monday 16 November 2026. October reports were due on 5 November.', `<button class="btn" data-go="season">${ic('sun')}Season setup</button><button class="btn ink" data-act="new-initiative">${ic('plus')}New initiative</button>`)}
+    return `${head('Command centre', 'District 3233 on Monday 16 November 2026. October reports were due on 5 November.', U.isLead() ? `<button class="btn" data-go="season">${ic('sun')}Season setup</button><button class="btn ink" data-act="new-initiative">${ic('plus')}New initiative</button>` : '')}
     <div class="stats">
       ${fig(act.length, 'Active clubs', `${act.length - college} community, ${college} college`)}
       ${fig(members, 'Members', 'From club rosters')}
@@ -153,7 +153,7 @@
     const lagging = cs.filter(c => ['none', 'draft', 'returned'].includes(U.report(c, 3).status));
     const overdue = cs.filter(c => U.wallet(c).some(w => w.status === 'overdue')).length;
     return `<div class="g-band" style="--g:${U.gcolor(gid)}"><span>${g.name}, ${esc(g.area)}</span><small>GRR ${esc(g.grr)}, GRS ${esc(g.grs)}</small></div>
-    ${head(mine ? 'My group' : g.name, `${cs.length} active clubs and ${num(mem)} members. You check reports before they reach the DRS.`, lagging.length ? `<button class="btn ink" data-act="nudge-all" data-g="${gid}">${ic('bell')}Nudge ${lagging.length} clubs</button>` : '') + `<button class="btn" data-go="seats">${ic('id')}Assign seats</button>`}
+    ${head(mine ? 'My group' : g.name, `${cs.length} active clubs and ${num(mem)} members. You check reports before they reach the DRS.`, lagging.length ? `<button class="btn ink" data-act="nudge-all" data-g="${gid}">${ic('bell')}Nudge ${lagging.length} clubs</button>` : '')}
     <div class="stats">
       ${fig(cs.length, 'Clubs')}
       ${fig(pct(ok, cs.length), 'October accepted', `${ok} of ${cs.length}`, '', '%')}
@@ -189,7 +189,6 @@
     const done = steps.filter(s => s.done).length;
     const w = U.wallet(c), open = w.filter(x => x.status !== 'verified');
     const owe = open.reduce((a, x) => a + x.amount, 0);
-    const myVisit = D.visits.find(v => (P.visits[v.id] != null ? P.visits[v.id] : v.club) === c.id);
     const evs = D.EVENTS.filter(e => e.status !== 'Done').slice(0, 3);
     const octAction = U.can.sendReport() && ['draft', 'none', 'returned'].includes(oct.status) ? `<button class="btn ink" data-go="monthly" data-arg="3">${ic('send')}Finish and send October</button>` : '';
     return `<div class="g-band" style="--g:${U.gcolor(c.group)}"><span>Rotaract Club of ${esc(c.name)}</span><small>Group ${U.groupOf(c)}, ${c.type.toLowerCase()} club since ${c.chartered}, ${c.members} members</small></div>
@@ -215,7 +214,7 @@
       </section>
       <section class="card">
         <div class="card-h"><h2>DRR official visit</h2></div>
-        ${myVisit ? `<p class="big-line">${myVisit.day} ${myVisit.mon}, ${myVisit.time}</p><p class="note">Prepare your board, a 5-minute club story and your project photos.</p>` : `<p class="note">You have not booked a slot yet. Slots for November and December are open.</p><button class="btn" data-go="visits">${ic('calendar')}Pick a slot</button>`}
+        ${(st => st.kind === 'confirmed' ? `<p class="big-line">${esc(st.label)}</p><p class="note">Confirmed. Prepare your board, a 5-minute club story and your project photos.</p>` : st.kind === 'requested' ? `<p class="note">You asked for <b>${esc(st.label)}</b>. Waiting for the DRR to confirm.</p>` : st.kind === 'open' ? `<p class="note">The DRR has opened visit dates.</p><button class="btn" data-go="visits">${ic('calendar')}Ask for a date</button>` : '<p class="note">The DRR has not opened visit dates yet. You will be told when they do.</p>')(U.visitState(c))}
       </section>
       <section class="card span2">
         <div class="card-h"><h2>Coming up for your club</h2><button class="lnk" data-go="events">All events</button></div>
@@ -268,7 +267,7 @@
         <button class="btn ${P.season === s[0] ? '' : 'ink'}" data-act="season" data-s="${s[0]}" ${P.season === s[0] ? 'disabled' : ''}>${P.season === s[0] ? 'Showing now' : 'Preview this skin'}</button>
       </section>`).join('')}
     </div>
-    <section class="card callout">${ic('palette')}<p><b>District accent colour.</b> The DRR and the DRS pick the accent colour everyone sees. Each person still chooses light or dark for themselves.</p><button class="btn" data-act="colours">Choose colours</button></section>
+    <section class="card callout">${ic('palette')}<p><b>District colour.</b> The site is white and pink, with a plum dark mode. The DRR and the DRS pick the shade of pink everyone sees.</p><button class="btn" data-act="colours">Choose the pink</button></section>
     <section class="card">
       <div class="card-h"><h2>Handover to the next DRR</h2></div>
       <ol class="timeline">
