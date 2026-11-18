@@ -36,6 +36,7 @@ src/core/ui.js      state, router with browser history and Back links, fees, cou
 src/core/views-*.js every screen, by role
 src/core/views-e.js group desk, roster tools, export, bank matching, colours, start page sections
 src/core/views-i.js dues and event fees (District Treasurer), club counts (GRR and GRS)
+src/core/views-j.js sponsors of the year: start page section, and the DRR or DRS adds them on the Season page
 src/wheel.js        the Rotary wheel, used by the logo and the loader sparks
 src/core/app.js     click, input and form handlers, boot
 ```

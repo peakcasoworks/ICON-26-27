@@ -12,4 +12,5 @@ import './core/views-f.js';
 import './core/views-g.js';
 import './core/views-h.js';
 import './core/views-i.js';
+import './core/views-j.js';
 import './core/app.js';
